@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Starfutbol · Panel administrativo
 
-## Getting Started
+Aplicación web para administrar los torneos dominicales de futbol 7 de Starfutbol:
+ligas, equipos, jugadores, árbitros, programación automática de partidos, resultados,
+tabla general, goleo, sanciones, eliminatorias, documentos PDF e historial de cambios.
 
-First, run the development server:
+- **Frontend y backend:** Next.js 15 (App Router) + React 19 + TypeScript + Tailwind CSS 4
+- **Base de datos:** PostgreSQL 16 (Docker) + Prisma ORM 6 con migraciones
+- **Validación:** Zod en el servidor · **Sesión:** JWT firmado en cookie httpOnly (jose) + bcrypt
+- **PDF:** @react-pdf/renderer (documentos vectoriales generados desde la base de datos)
+- **Pruebas:** Vitest (dominio + integración con PostgreSQL) y prueba E2E con navegador (playwright-core)
+
+## Requisitos
+
+- Node.js 20 o superior (probado con Node 23.9)
+- Docker Desktop (para PostgreSQL) — o un PostgreSQL 14+ propio
+- Chrome o Edge instalado (solo para la prueba E2E y las capturas)
+
+## Instalación rápida
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env            # y completa AUTH_SECRET y ADMIN_PASSWORD
+npm run db:up                   # inicia PostgreSQL en Docker (puerto 5433)
+npm run db:migrate              # aplica las migraciones
+npm run db:seed                 # configuración inicial + usuario administrador
+npm run db:demo                 # (opcional) temporada de DEMOSTRACIÓN con datos ficticios
+npm run dev                     # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Inicia sesión con `ADMIN_EMAIL` / `ADMIN_PASSWORD` del archivo `.env`.
+Si `ADMIN_PASSWORD` está vacío, el seed genera una contraseña aleatoria y la imprime en la terminal.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Producción: `npm run build && npm start` (ver [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md)).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Comandos
 
-## Learn More
+| Comando | Descripción |
+|---|---|
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` / `npm start` | Compilación y servidor de producción |
+| `npm run db:up` | Inicia PostgreSQL (docker compose) |
+| `npm run db:migrate` | Aplica migraciones pendientes (no destructivo) |
+| `npm run db:seed` | Configuración inicial idempotente y administrador |
+| `npm run db:demo` / `npm run db:demo -- --clean` | Crea / elimina la temporada de demostración |
+| `npm run db:backup` | Respaldo completo `pg_dump` en `backups/` |
+| `npm run db:restore -- <archivo> --base <nueva>` | Restaura un respaldo en una base nueva |
+| `npm test` | Todas las pruebas (unitarias + integración) |
+| `npm run test:unit` / `npm run test:integration` | Pruebas por tipo |
+| `npm run typecheck` | Verificación de tipos |
+| `npm run pdf:samples` | Genera todos los PDF de la temporada demo en `test-output/pdf` |
 
-To learn more about Next.js, take a look at the following resources:
+## Documentación
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [docs/MANUAL.md](docs/MANUAL.md) — manual breve de administración
+- [docs/INSTALACION.md](docs/INSTALACION.md) — instalación y configuración de la base de datos
+- [docs/RESPALDOS.md](docs/RESPALDOS.md) — copias de seguridad y restauración
+- [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md) — despliegue en producción
+- [docs/PRUEBAS.md](docs/PRUEBAS.md) — cómo ejecutar las pruebas y resultados obtenidos
+- [docs/REGLAS_Y_DECISIONES.md](docs/REGLAS_Y_DECISIONES.md) — reglas deportivas implementadas y pendientes de confirmar
+- [docs/ESTADO.md](docs/ESTADO.md) — funcionalidades completadas y limitaciones
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estructura
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+prisma/              esquema, migraciones, seed (configuración) y demo (datos ficticios)
+src/domain/          lógica deportiva pura y probada: puntuación, tabla, round-robin,
+                     algoritmo húngaro, generador de calendario, conflictos, eliminatorias, goleo
+src/server/services/ servicios con transacciones: partidos, resultados, calendario, eliminatorias…
+src/server/actions/  acciones del servidor (validación Zod + permisos + auditoría)
+src/app/(panel)/     pantallas del panel administrativo
+src/app/api/         PDF, escudos, respaldo JSON, salud
+src/pdf/             plantillas y generación de documentos PDF
+src/components/      componentes de interfaz y formularios
+tests/               pruebas unitarias e integración
+scripts/             respaldo, restauración, E2E, capturas, muestras PDF
+```

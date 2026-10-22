@@ -1,0 +1,642 @@
+// Modelo de datos de Starfutbol.
+// Las estadísticas (tabla general, goleo) NO se almacenan: se reconstruyen
+// siempre a partir de los resultados oficiales registrados.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Usuarios ─────────────────────────────
+
+enum UserRole {
+  ADMIN
+  AUXILIAR
+  ARBITRO
+  CONSULTA
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         UserRole   @default(ADMIN)
+  active       Boolean    @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditLogs    AuditLog[]
+}
+
+// ───────────────────────── Torneo, sede, temporada ─────────────────────────
+
+model Tournament {
+  id        String   @id @default(cuid())
+  name      String
+  modality  String   @default("Futbol 7")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  venues    Venue[]
+  seasons   Season[]
+}
+
+model Venue {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Restrict)
+  name         String
+  address      String?
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  fields       Field[]
+  seasons      Season[]
+
+  @@unique([tournamentId, name])
+}
+
+model Field {
+  id        String       @id @default(cuid())
+  venueId   String
+  venue     Venue        @relation(fields: [venueId], references: [id], onDelete: Restrict)
+  name      String
+  sortOrder Int          @default(0)
+  active    Boolean      @default(true)
+  matches   Match[]
+  blocks    FieldBlock[]
+
+  @@unique([venueId, name])
+}
+
+enum SeasonStatus {
+  CONFIGURACION
+  EN_CURSO
+  FASE_REGULAR_CERRADA
+  FINALIZADA
+}
+
+model Season {
+  id                String       @id @default(cuid())
+  tournamentId      String
+  tournament        Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Restrict)
+  venueId           String
+  venue             Venue        @relation(fields: [venueId], references: [id], onDelete: Restrict)
+  name              String
+  status            SeasonStatus @default(CONFIGURACION)
+  isCurrent         Boolean      @default(false)
+  /// Temporada de demostración: sus datos no son oficiales.
+  isDemo            Boolean      @default(false)
+  startDate         DateTime     @db.Date
+  /// 0 = domingo … 6 = sábado
+  weekday           Int          @default(0)
+  regularRounds     Int          @default(14)
+  /// Si es verdadero, un partido no se considera completamente programado sin árbitro.
+  requireReferee    Boolean      @default(true)
+  /// Enfrentamientos entre ligas diferentes (desactivado por defecto).
+  allowInterLeague  Boolean      @default(false)
+  /// Fechas (YYYY-MM-DD) en que no hay jornada (días festivos, etc.).
+  excludedDates     String[]     @default([])
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  leagues           League[]
+  timeSlots         TimeSlot[]
+  rounds            Round[]
+  matches           Match[]
+  teams             Team[]
+  players           Player[]
+  sanctions         Sanction[]
+  scoringConfigs    ScoringConfig[]
+  tiebreakConfigs   TiebreakConfig[]
+  scheduleDrafts    ScheduleDraft[]
+  playoffFormats    PlayoffFormat[]
+  playoffStages     PlayoffStage[]
+  standingSnapshots StandingSnapshot[]
+
+  @@unique([tournamentId, name])
+}
+
+model TimeSlot {
+  id               String                @id @default(cuid())
+  seasonId         String
+  season           Season                @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  /// Hora de inicio en formato HH:MM (24 h)
+  startTime        String
+  durationMinutes  Int                   @default(50)
+  sortOrder        Int                   @default(0)
+  active           Boolean               @default(true)
+  matches          Match[]
+  fieldBlocks      FieldBlock[]
+  teamRestrictions TeamRestriction[]
+  availabilities   RefereeAvailability[]
+
+  @@unique([seasonId, startTime])
+}
+
+model FieldBlock {
+  id         String    @id @default(cuid())
+  fieldId    String
+  field      Field     @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  date       DateTime  @db.Date
+  /// null = todo el día
+  timeSlotId String?
+  timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id], onDelete: Cascade)
+  reason     String?
+  createdAt  DateTime  @default(now())
+
+  @@index([date])
+}
+
+// ─────────────────────────────── Ligas ───────────────────────────────
+
+model League {
+  id             String   @id @default(cuid())
+  seasonId       String
+  season         Season   @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  name           String
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  championTeamId String?
+  championTeam   Team?    @relation("LeagueChampion", fields: [championTeamId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  teams             Team[]             @relation("LeagueTeams")
+  matches           Match[]
+  scoringConfig     ScoringConfig?
+  tiebreakConfig    TiebreakConfig?
+  playoffFormat     PlayoffFormat?
+  playoffStages     PlayoffStage[]
+  standingSnapshots StandingSnapshot[]
+
+  @@unique([seasonId, name])
+}
+
+/// Reglas de puntuación. Una por temporada (leagueId nulo) y, opcionalmente, una por liga.
+model ScoringConfig {
+  id                 String  @id @default(cuid())
+  seasonId           String
+  season             Season  @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  leagueId           String? @unique
+  league             League? @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  winPoints          Int     @default(3)
+  lossPoints         Int     @default(0)
+  shootoutWinPoints  Int     @default(2)
+  shootoutLossPoints Int     @default(1)
+  /// Tiros por equipo en la tanda de penales antes de la muerte súbita (null = sin validar).
+  shootoutKicks      Int?    @default(3)
+  /// Empate definitivo (sin desempate). Desactivado hasta que la liga lo defina.
+  allowDraws         Boolean @default(false)
+  drawPoints         Int?
+}
+
+/// Orden de criterios de desempate (tabla general y goleo).
+model TiebreakConfig {
+  id             String   @id @default(cuid())
+  seasonId       String
+  season         Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  leagueId       String?  @unique
+  league         League?  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  criteria       String[]
+  scorerCriteria String[] @default([])
+}
+
+// ───────────────────────── Equipos y jugadores ─────────────────────────
+
+model Team {
+  id              String    @id @default(cuid())
+  seasonId        String
+  season          Season    @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  leagueId        String
+  league          League    @relation("LeagueTeams", fields: [leagueId], references: [id], onDelete: Restrict)
+  name            String
+  /// Nombre normalizado (sin acentos, mayúsculas) para evitar duplicados.
+  nameKey         String
+  logo            Bytes?
+  logoMime        String?
+  contactName     String?
+  contactPhone    String?
+  contactEmail    String?
+  notes           String?
+  active          Boolean   @default(true)
+  isDemo          Boolean   @default(false)
+  deactivatedAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  players         Player[]
+  playerHistory   PlayerTeamHistory[]
+  homeMatches     Match[]             @relation("HomeTeam")
+  awayMatches     Match[]             @relation("AwayTeam")
+  scorers         MatchScorer[]
+  sanctions       Sanction[]
+  restrictions    TeamRestriction[]
+  championOf      League[]            @relation("LeagueChampion")
+  tiesHome        PlayoffTie[]        @relation("TieHome")
+  tiesAway        PlayoffTie[]        @relation("TieAway")
+  tiesWon         PlayoffTie[]        @relation("TieWinner")
+  resultsWon      MatchResult[]       @relation("ResultWinner")
+
+  @@unique([leagueId, nameKey])
+  @@index([seasonId])
+}
+
+/// Restricción de disponibilidad de un equipo.
+/// date nulo + timeSlotId = nunca en ese horario; date + timeSlotId nulo = todo ese día.
+model TeamRestriction {
+  id         String    @id @default(cuid())
+  teamId     String
+  team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  date       DateTime? @db.Date
+  timeSlotId String?
+  timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id], onDelete: Cascade)
+  reason     String?
+  createdAt  DateTime  @default(now())
+}
+
+model Player {
+  id           String              @id @default(cuid())
+  seasonId     String
+  season       Season              @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  teamId       String
+  team         Team                @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  fullName     String
+  nameKey      String
+  jerseyNumber Int?
+  active       Boolean             @default(true)
+  isDemo       Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  history      PlayerTeamHistory[]
+  goals        MatchScorer[]
+  sanctions    Sanction[]
+
+  @@index([teamId])
+  @@index([seasonId])
+}
+
+model PlayerTeamHistory {
+  id       String    @id @default(cuid())
+  playerId String
+  player   Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  teamId   String
+  team     Team      @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  fromDate DateTime  @default(now())
+  toDate   DateTime?
+  reason   String?
+}
+
+// ─────────────────────────────── Árbitros ───────────────────────────────
+
+model Referee {
+  id             String                @id @default(cuid())
+  name           String
+  nameKey        String                @unique
+  phone          String?
+  email          String?
+  notes          String?
+  active         Boolean               @default(true)
+  isDemo         Boolean               @default(false)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  availabilities RefereeAvailability[]
+  matches        Match[]
+}
+
+/// Disponibilidad registrada. Sin registros, el árbitro activo se considera disponible.
+/// timeSlotId nulo = aplica a todo el día.
+model RefereeAvailability {
+  id         String    @id @default(cuid())
+  refereeId  String
+  referee    Referee   @relation(fields: [refereeId], references: [id], onDelete: Cascade)
+  date       DateTime  @db.Date
+  timeSlotId String?
+  timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id], onDelete: Cascade)
+  available  Boolean   @default(false)
+  note       String?
+  createdAt  DateTime  @default(now())
+
+  @@index([date])
+}
+
+// ─────────────────────────── Jornadas y partidos ───────────────────────────
+
+enum RoundPhase {
+  REGULAR
+  ELIMINATORIA
+}
+
+model Round {
+  id          String     @id @default(cuid())
+  seasonId    String
+  season      Season     @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  phase       RoundPhase @default(REGULAR)
+  number      Int
+  name        String?
+  date        DateTime   @db.Date
+  /// Calendario confirmado: protegido contra cambios accidentales.
+  locked      Boolean    @default(false)
+  confirmedAt DateTime?
+  notes       String?
+  createdAt   DateTime   @default(now())
+  matches     Match[]
+
+  @@unique([seasonId, phase, number])
+}
+
+enum MatchStatus {
+  PENDIENTE
+  PROGRAMADO
+  JUGADO
+  CANCELADO
+  REPROGRAMADO
+}
+
+enum MatchType {
+  OFICIAL
+  SUSTITUCION
+  AMISTOSO
+  INTERLIGA
+  ELIMINATORIA
+}
+
+model Match {
+  id                 String      @id @default(cuid())
+  seasonId           String
+  season             Season      @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  leagueId           String?
+  league             League?     @relation(fields: [leagueId], references: [id], onDelete: Restrict)
+  roundId            String?
+  round              Round?      @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  /// REGULAR o código de etapa eliminatoria (REPECHAJE, CUARTOS, …)
+  stage              String      @default("REGULAR")
+  type               MatchType   @default(OFICIAL)
+  countsForStandings Boolean     @default(true)
+  status             MatchStatus @default(PROGRAMADO)
+  date               DateTime?   @db.Date
+  timeSlotId         String?
+  timeSlot           TimeSlot?   @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
+  fieldId            String?
+  field              Field?      @relation(fields: [fieldId], references: [id], onDelete: Restrict)
+  refereeId          String?
+  referee            Referee?    @relation(fields: [refereeId], references: [id], onDelete: Restrict)
+  homeTeamId         String
+  homeTeam           Team        @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Restrict)
+  awayTeamId         String
+  awayTeam           Team        @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Restrict)
+  locked             Boolean     @default(false)
+  /// Partido de sustitución: partido cancelado cuyo espacio aprovecha.
+  replacesMatchId    String?
+  replacesMatch      Match?      @relation("Replacement", fields: [replacesMatchId], references: [id], onDelete: SetNull)
+  replacements       Match[]     @relation("Replacement")
+  originalDate       DateTime?   @db.Date
+  rescheduleCount    Int         @default(0)
+  cancelReason       String?
+  notes              String?
+  isDemo             Boolean     @default(false)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  result             MatchResult?
+  scorers            MatchScorer[]
+  sanctions          Sanction[]
+  servings           SanctionServing[]
+  playoffTie         PlayoffTie?
+
+  @@index([seasonId, date])
+  @@index([leagueId])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([refereeId, date])
+}
+
+enum ResultType {
+  TIEMPO_REGULAR
+  DESEMPATE
+  EMPATE
+  ADMINISTRATIVO
+}
+
+model MatchResult {
+  id            String     @id @default(cuid())
+  matchId       String     @unique
+  match         Match      @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  resultType    ResultType
+  /// Marcador del tiempo regular (los penales NO se suman aquí).
+  homeGoals     Int
+  awayGoals     Int
+  homeShootout  Int?
+  awayShootout  Int?
+  winnerTeamId  String?
+  winnerTeam    Team?      @relation("ResultWinner", fields: [winnerTeamId], references: [id], onDelete: Restrict)
+  notes         String?
+  recordedById  String?
+  updatedById   String?
+  version       Int        @default(1)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model MatchScorer {
+  id       String @id @default(cuid())
+  matchId  String
+  match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  /// Equipo con el que anotó (se conserva aunque el jugador cambie de equipo).
+  teamId   String
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  goals    Int
+
+  @@unique([matchId, playerId])
+  @@index([playerId])
+}
+
+// ─────────────────────────────── Sanciones ───────────────────────────────
+
+model SanctionType {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  active    Boolean    @default(true)
+  sanctions Sanction[]
+}
+
+enum SanctionUnitKind {
+  PARTIDOS
+  MINUTOS
+  DIAS
+  OTRA
+}
+
+model SanctionUnit {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  kind      SanctionUnitKind
+  active    Boolean          @default(true)
+  sanctions Sanction[]
+}
+
+enum SanctionStatus {
+  ACTIVA
+  PENDIENTE
+  CUMPLIDA
+  CANCELADA
+  EN_REVISION
+}
+
+model Sanction {
+  id        String            @id @default(cuid())
+  seasonId  String
+  season    Season            @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  playerId  String
+  player    Player            @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  teamId    String
+  team      Team              @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  matchId   String?
+  match     Match?            @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  date      DateTime          @db.Date
+  typeId    String
+  type      SanctionType      @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  reason    String
+  duration  Int
+  unitId    String
+  unit      SanctionUnit      @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  status    SanctionStatus    @default(ACTIVA)
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  servings  SanctionServing[]
+
+  @@index([seasonId])
+  @@index([playerId])
+}
+
+/// Cumplimiento: un registro por partido (o periodo) cumplido.
+model SanctionServing {
+  id         String   @id @default(cuid())
+  sanctionId String
+  sanction   Sanction @relation(fields: [sanctionId], references: [id], onDelete: Cascade)
+  matchId    String?
+  match      Match?   @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  date       DateTime @db.Date
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@unique([sanctionId, matchId])
+}
+
+// ─────────────────────────── Programación automática ───────────────────────────
+
+enum DraftStatus {
+  BORRADOR
+  CONFIRMADO
+  DESCARTADO
+}
+
+model ScheduleDraft {
+  id          String      @id @default(cuid())
+  seasonId    String
+  season      Season      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  status      DraftStatus @default(BORRADOR)
+  params      Json
+  data        Json
+  createdById String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+// ─────────────────────────────── Eliminatorias ───────────────────────────────
+
+/// Estructura del cuadro y zonas de color de la tabla, configurable por liga.
+model PlayoffFormat {
+  id               String   @id @default(cuid())
+  seasonId         String
+  season           Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  leagueId         String   @unique
+  league           League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  stages           Json
+  zones            Json
+  /// El administrador confirmó que los cruces corresponden a la referencia oficial.
+  officialConfirmed Boolean @default(false)
+  updatedAt        DateTime @updatedAt
+}
+
+model StandingSnapshot {
+  id          String   @id @default(cuid())
+  seasonId    String
+  season      Season   @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  leagueId    String
+  league      League   @relation(fields: [leagueId], references: [id], onDelete: Restrict)
+  kind        String   @default("CIERRE_FASE_REGULAR")
+  rows        Json
+  notes       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([leagueId, kind])
+}
+
+enum PlayoffStageStatus {
+  PENDIENTE
+  GENERADA
+  COMPLETADA
+}
+
+model PlayoffStage {
+  id        String             @id @default(cuid())
+  seasonId  String
+  season    Season             @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  leagueId  String
+  league    League             @relation(fields: [leagueId], references: [id], onDelete: Restrict)
+  code      String
+  name      String
+  order     Int
+  status    PlayoffStageStatus @default(PENDIENTE)
+  createdAt DateTime           @default(now())
+  ties      PlayoffTie[]
+
+  @@unique([leagueId, code])
+}
+
+model PlayoffTie {
+  id           String       @id @default(cuid())
+  stageId      String
+  stage        PlayoffStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  slot         Int
+  /// Origen: S5 (5.º lugar), W:REPECHAJE:1 (ganador), L:SEMIFINAL:2 (perdedor)
+  homeSource   String
+  awaySource   String
+  homeTeamId   String?
+  homeTeam     Team?        @relation("TieHome", fields: [homeTeamId], references: [id], onDelete: Restrict)
+  awayTeamId   String?
+  awayTeam     Team?        @relation("TieAway", fields: [awayTeamId], references: [id], onDelete: Restrict)
+  matchId      String?      @unique
+  match        Match?       @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  winnerTeamId String?
+  winnerTeam   Team?        @relation("TieWinner", fields: [winnerTeamId], references: [id], onDelete: Restrict)
+
+  @@unique([stageId, slot])
+}
+
+// ─────────────────────────────── Auditoría ───────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  summary   String?
+  before    Json?
+  after     Json?
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
