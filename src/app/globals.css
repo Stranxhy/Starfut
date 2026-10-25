@@ -44,3 +44,12 @@ dialog::backdrop { background: rgba(9, 9, 11, 0.55); backdrop-filter: blur(2px);
 @media print {
   aside, header, .no-print { display: none !important; }
 }
+
+/* Barra de progreso de navegación */
+@keyframes nav-progress {
+  0% { width: 0; }
+  20% { width: 45%; }
+  100% { width: 85%; }
+}
+.nav-progress { animation: nav-progress 4s cubic-bezier(0.1, 0.7, 0.2, 1) forwards; }
+@media (prefers-reduced-motion: reduce) { .nav-progress { animation: none; width: 85%; } }

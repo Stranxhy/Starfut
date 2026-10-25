@@ -56,7 +56,6 @@ export const SEASON_STATUS: Record<string, string> = {
 export const ROLE: Record<string, string> = {
   ADMIN: "Administrador",
   AUXILIAR: "Auxiliar (resultados)",
-  ARBITRO: "Árbitro (consulta)",
   CONSULTA: "Consulta",
 };
 

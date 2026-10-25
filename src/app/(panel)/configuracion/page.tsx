@@ -23,7 +23,6 @@ export default async function ConfigGeneralPage() {
             startDate: toISODate(ctx.startDate)!,
             weekday: ctx.weekday,
             regularRounds: ctx.regularRounds,
-            requireReferee: ctx.requireReferee,
             allowInterLeague: ctx.allowInterLeague,
             excludedDates: ctx.excludedDates,
           }}

@@ -13,7 +13,6 @@ import { RolDoc } from "./documents/Rol";
 import { SancionesDoc } from "./documents/Sanciones";
 import { EliminatoriasDoc } from "./documents/Eliminatorias";
 import { EquiposDoc } from "./documents/Equipos";
-import { ArbitrosDoc } from "./documents/Arbitros";
 import { CalendarioDoc } from "./documents/Calendario";
 import { HistorialResultadosDoc } from "./documents/HistorialResultados";
 import { CancelacionesDoc } from "./documents/Cancelaciones";
@@ -83,7 +82,7 @@ export const DOC_DEFS = {
     params: "(date=AAAA-MM-DD | round=N)[&league=<id>]",
     load: data.loadResults,
     Component: ResultadosDoc,
-    filename: (d) => `Starfutbol_Resultados_${d.date}.pdf`,
+    filename: (d) => `Starfutbol_Resultados_${d.filteredLeague ? `${fileSlug(d.leagueName)}_` : ""}${d.date}.pdf`,
   }),
   rol: entry({
     label: "Rol de juegos",
@@ -116,14 +115,6 @@ export const DOC_DEFS = {
     load: data.loadTeams,
     Component: EquiposDoc,
     filename: () => "Starfutbol_Equipos.pdf",
-  }),
-  arbitros: entry({
-    label: "Árbitros",
-    orientation: "portrait",
-    params: "",
-    load: (seasonId) => data.loadReferees(seasonId),
-    Component: ArbitrosDoc,
-    filename: () => "Starfutbol_Arbitros.pdf",
   }),
   calendario: entry({
     label: "Calendario",

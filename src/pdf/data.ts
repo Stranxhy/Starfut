@@ -103,7 +103,6 @@ export interface MatchLine {
   date: string | null;
   time: string | null;
   field: string | null;
-  referee: string | null;
   leagueId: string | null;
   league: string | null;
   round: number | null;
@@ -136,7 +135,6 @@ function toLine(m: MatchRow): MatchLine {
     date: toISODate(m.date),
     time: m.timeSlot?.startTime ?? null,
     field: m.field?.name ?? null,
-    referee: m.referee?.name ?? null,
     leagueId: m.league?.id ?? m.homeTeam.leagueId,
     league: m.league?.name ?? null,
     round: m.round?.number ?? null,
@@ -707,42 +705,6 @@ export async function loadTeams(seasonId: string, p: Params): Promise<TeamsDocDa
     filteredLeague: !!league,
     rows: teams.map((t) => ({ id: t.id, name: t.name, league: t.league.name, active: t.active, players: t._count.players })),
   };
-}
-
-// ───────────────────────────── Árbitros ─────────────────────────────
-
-export interface RefereesDocData {
-  meta: DocMeta;
-  today: string;
-  rows: { id: string; name: string; active: boolean; played: number; upcoming: number }[];
-}
-
-export async function loadReferees(seasonId: string): Promise<RefereesDocData> {
-  const meta = await loadMeta(seasonId);
-  const today = todayISO();
-  const refs = await prisma.referee.findMany({
-    where: meta.isDemo ? {} : { isDemo: false },
-    select: {
-      id: true,
-      name: true,
-      active: true,
-      matches: { where: { seasonId }, select: { status: true, date: true } },
-    },
-    orderBy: { name: "asc" },
-  });
-  const rows = refs
-    .map((r) => ({
-      id: r.id,
-      name: r.name,
-      active: r.active,
-      played: r.matches.filter((m) => m.status === "JUGADO").length,
-      upcoming: r.matches.filter(
-        (m) => ["PROGRAMADO", "PENDIENTE", "REPROGRAMADO"].includes(m.status) && (toISODate(m.date) ?? "9999") >= today,
-      ).length,
-    }))
-    .filter((r) => r.active || r.played > 0 || r.upcoming > 0);
-  rows.sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, "es"));
-  return { meta, today, rows };
 }
 
 // ───────────────────── Estadísticas de un equipo ─────────────────────

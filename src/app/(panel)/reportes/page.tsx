@@ -1,25 +1,26 @@
 import { FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireSeasonContext } from "@/server/season";
-import { buttonClass, Card, EmptyState, inputClass, PageHeader } from "@/components/ui/core";
-import { formatShort, toISODate } from "@/lib/dates";
+import { matchDays } from "@/server/services/matchdays";
+import { WhatsAppPdfs } from "@/components/WhatsAppPdfs";
+import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
+import { buttonClass, Card, Collapsible, EmptyState, inputClass, PageHeader } from "@/components/ui/core";
+import { formatShort, todayISO } from "@/lib/dates";
 import { SANCTION_STATUS } from "@/lib/labels";
+import { str, type SP } from "@/lib/params";
 
-export const metadata = { title: "Reportes PDF" };
+export const metadata = { title: "PDF para WhatsApp" };
 
-function Report({ title, description, doc, children }: { title: string; description: string; doc: string; children?: React.ReactNode }) {
+function Report({ title, doc, children }: { title: string; doc: string; children?: React.ReactNode }) {
   return (
     <Card className="flex flex-col">
       <form action={`/api/pdf/${doc}`} method="get" target="_blank" className="flex flex-1 flex-col gap-3 p-4">
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700"><FileText className="h-5 w-5" /></span>
-          <h2 className="self-center font-bold text-zinc-900" title={description}>{title}</h2>
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700"><FileText className="h-5 w-5" /></span>
+          <h3 className="font-bold text-zinc-900">{title}</h3>
         </div>
         <div className="grid flex-1 content-start gap-2">{children}</div>
-        <div className="flex flex-wrap gap-2">
-          <button className={buttonClass("primary", "sm")}>Vista previa</button>
-          <button name="download" value="1" className={buttonClass("secondary", "sm")}>Descargar</button>
-        </div>
+        <button className={buttonClass("secondary", "sm")}>Abrir PDF</button>
       </form>
     </Card>
   );
@@ -37,75 +38,83 @@ function Select({ name, label, options, required, placeholder }: { name: string;
   );
 }
 
-export default async function ReportesPage() {
+export default async function ReportesPage({ searchParams }: { searchParams: Promise<SP> }) {
   const ctx = await requireSeasonContext();
   if (!ctx) return <EmptyState title="Sin temporada" />;
-  const [dates, rounds, teams, types] = await Promise.all([
-    prisma.match.groupBy({ by: ["date"], where: { seasonId: ctx.id, date: { not: null } }, orderBy: { date: "desc" } }),
-    prisma.round.findMany({ where: { seasonId: ctx.id, phase: "REGULAR" }, orderBy: { number: "asc" } }),
+  const sp = await searchParams;
+  const [days, teams, types, perLeague] = await Promise.all([
+    matchDays(ctx.id),
     prisma.team.findMany({ where: { seasonId: ctx.id }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.sanctionType.findMany({ orderBy: { name: "asc" } }),
+    prisma.team.groupBy({ by: ["leagueId"], where: { seasonId: ctx.id, active: true }, _count: true }),
   ]);
-  const leagues = ctx.leagues.map((l) => ({ value: l.id, label: l.name }));
-  const dateOpts = dates.map((d) => {
-    const iso = toISODate(d.date)!;
-    const r = rounds.find((x) => toISODate(x.date) === iso);
-    return { value: iso, label: `${formatShort(iso)}${r ? ` · Jornada ${r.number}` : ""}` };
-  });
-  const roundOpts = rounds.map((r) => ({ value: String(r.number), label: `Jornada ${r.number} (${formatShort(r.date)})` }));
+  const pick = (v: string | undefined, fallback: string | null) => (v && days.all.includes(v) ? v : fallback);
+  const rolDate = pick(str(sp.rol), days.rolDate);
+  const resultsDate = pick(str(sp.resultados), days.resultsDate);
+  const today = todayISO();
+  // Solo ligas activas con equipos: evita tarjetas vacías.
+  const withTeams = new Set(perLeague.map((g) => g.leagueId));
+  const leagues = ctx.leagues.filter((l) => l.active && withTeams.has(l.id)).map((l) => ({ id: l.id, name: l.name }));
+  const leagueOpts = ctx.leagues.map((l) => ({ value: l.id, label: l.name }));
   const teamOpts = teams.map((t) => ({ value: t.id, label: t.name }));
 
   return (
     <>
-      <PageHeader title="Reportes PDF" />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Report title="Tabla general" description="Clasificación con zonas de color." doc="tabla-general">
-          <Select name="league" label="Liga" options={leagues} required />
-          <Select name="round" label="Hasta la jornada" options={roundOpts} placeholder="Última disponible" />
-        </Report>
-        <Report title="Tabla de goleo" description="Goleadores de mayor a menor." doc="goleo">
-          <Select name="league" label="Liga" options={leagues} required />
-          <Select name="round" label="Hasta la jornada" options={roundOpts} placeholder="Última disponible" />
-        </Report>
-        <Report title="Rol de juegos" description="Un PDF por liga: horario, campo, equipos y árbitro." doc="rol">
-          {dateOpts.length ? <Select name="date" label="Fecha" options={dateOpts} required /> : <p className="text-xs text-zinc-500">Sin fechas programadas.</p>}
-          <Select name="league" label="Liga" options={leagues} required />
-        </Report>
-        <Report title="Resultados" description="Marcadores de una fecha; pendientes y cancelados identificados." doc="resultados">
-          {dateOpts.length ? <Select name="date" label="Fecha" options={dateOpts} required /> : <p className="text-xs text-zinc-500">Sin fechas programadas.</p>}
-          <Select name="league" label="Liga" options={leagues} />
-        </Report>
-        <Report title="Sanciones" description="Reporte completo o filtrado." doc="sanciones">
-          <Select name="league" label="Liga" options={leagues} />
-          <Select name="team" label="Equipo" options={teamOpts} placeholder="Todos" />
-          <Select name="status" label="Estado" options={Object.entries(SANCTION_STATUS).map(([value, v]) => ({ value, label: v.label }))} placeholder="Todos" />
-          <Select name="type" label="Tipo" options={types.map((t) => ({ value: t.id, label: t.name }))} placeholder="Todos" />
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs font-semibold text-zinc-700">Desde<input type="date" name="from" className={`${inputClass} mt-1`} /></label>
-            <label className="text-xs font-semibold text-zinc-700">Hasta<input type="date" name="to" className={`${inputClass} mt-1`} /></label>
-          </div>
-        </Report>
-        <Report title="Cuadro de eliminatorias" description="Cruces, resultados y campeón." doc="eliminatorias">
-          <Select name="league" label="Liga" options={leagues} required />
-        </Report>
-        <Report title="Calendario completo" description="Todas las jornadas con horarios, canchas y árbitros." doc="calendario">
-          <Select name="league" label="Liga" options={leagues} />
-        </Report>
-        <Report title="Historial de resultados" description="Partidos disputados agrupados por fecha." doc="historial-resultados">
-          <Select name="league" label="Liga" options={leagues} />
-          <Select name="team" label="Equipo" options={teamOpts} placeholder="Todos" />
-        </Report>
-        <Report title="Cancelaciones y reprogramaciones" description="Partidos cancelados, sustituciones y cambios de fecha." doc="cancelaciones">
-          <Select name="league" label="Liga" options={leagues} />
-        </Report>
-        <Report title="Estadísticas por equipo" description="Posición, resultados, goleadores y próximos partidos." doc="estadisticas-equipo">
-          <Select name="team" label="Equipo" options={teamOpts} required />
-        </Report>
-        <Report title="Listado de equipos" description="Equipos por liga (sin datos de contacto)." doc="equipos">
-          <Select name="league" label="Liga" options={leagues} />
-        </Report>
-        <Report title="Listado de árbitros" description="Árbitros y partidos asignados (sin datos de contacto)." doc="arbitros" />
-      </div>
+      <PageHeader title="PDF para WhatsApp" description="Un PDF por liga. Toca un documento para abrirlo, o la flecha para descargarlo." />
+
+      {days.all.length > 0 && (
+        <form className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <label className="flex items-center gap-2">
+            <span className="font-semibold text-zinc-600">Rol del</span>
+            <AutoSubmitSelect name="rol" defaultValue={rolDate ?? ""} className="rounded-lg py-1.5 ring-1 ring-zinc-300">
+              {days.all.map((d) => <option key={d} value={d}>{formatShort(d)}</option>)}
+            </AutoSubmitSelect>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="font-semibold text-zinc-600">Resultados del</span>
+            <AutoSubmitSelect name="resultados" defaultValue={resultsDate ?? ""} className="rounded-lg py-1.5 ring-1 ring-zinc-300">
+              {days.all.filter((d) => d <= today || d === resultsDate).map((d) => <option key={d} value={d}>{formatShort(d)}</option>)}
+            </AutoSubmitSelect>
+          </label>
+        </form>
+      )}
+
+      {leagues.length ? (
+        <WhatsAppPdfs leagues={leagues} rolDate={rolDate} resultsDate={resultsDate} />
+      ) : (
+        <Card>
+          <EmptyState title="Aún no hay equipos registrados" description="Registra los equipos de cada liga para generar sus PDF." />
+        </Card>
+      )}
+
+      <Collapsible title="Otros documentos" className="mt-6">
+        <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+          <Report title="Sanciones" doc="sanciones">
+            <Select name="league" label="Liga" options={leagueOpts} />
+            <Select name="status" label="Estado" options={Object.entries(SANCTION_STATUS).map(([value, v]) => ({ value, label: v.label }))} placeholder="Todos" />
+            <Select name="type" label="Tipo" options={types.map((t) => ({ value: t.id, label: t.name }))} placeholder="Todos" />
+          </Report>
+          <Report title="Cuadro de eliminatorias" doc="eliminatorias">
+            <Select name="league" label="Liga" options={leagueOpts} required />
+          </Report>
+          <Report title="Calendario completo" doc="calendario">
+            <Select name="league" label="Liga" options={leagueOpts} required />
+          </Report>
+          <Report title="Historial de resultados" doc="historial-resultados">
+            <Select name="league" label="Liga" options={leagueOpts} required />
+            <Select name="team" label="Equipo" options={teamOpts} placeholder="Todos" />
+          </Report>
+          <Report title="Cancelaciones y reprogramaciones" doc="cancelaciones">
+            <Select name="league" label="Liga" options={leagueOpts} required />
+          </Report>
+          <Report title="Estadísticas de un equipo" doc="estadisticas-equipo">
+            <Select name="team" label="Equipo" options={teamOpts} required />
+          </Report>
+          <Report title="Listado de equipos" doc="equipos">
+            <Select name="league" label="Liga" options={leagueOpts} required />
+          </Report>
+        </div>
+      </Collapsible>
     </>
   );
 }

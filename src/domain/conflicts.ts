@@ -2,14 +2,7 @@
 // errors   → restricciones obligatorias: impiden guardar.
 // warnings → situaciones que el administrador debe confirmar conscientemente.
 
-import {
-  isFieldBlocked,
-  isRefereeAvailable,
-  teamRestriction,
-  type FieldBlockInput,
-  type RefereeAvailabilityInput,
-  type TeamRestrictionInput,
-} from "./availability";
+import { isFieldBlocked, teamRestriction, type FieldBlockInput, type TeamRestrictionInput } from "./availability";
 
 export type MatchTypeCode = "OFICIAL" | "SUSTITUCION" | "AMISTOSO" | "INTERLIGA" | "ELIMINATORIA";
 
@@ -18,7 +11,6 @@ export interface MatchCandidate {
   date: string | null;
   timeSlotId: string | null;
   fieldId: string | null;
-  refereeId: string | null;
   homeTeamId: string;
   awayTeamId: string;
   type: MatchTypeCode;
@@ -29,7 +21,6 @@ export interface ExistingMatch {
   date: string | null;
   timeSlotId: string | null;
   fieldId: string | null;
-  refereeId: string | null;
   homeTeamId: string;
   awayTeamId: string;
 }
@@ -39,13 +30,10 @@ export interface ConflictContext {
   sameDateMatches: ExistingMatch[];
   fieldBlocks: FieldBlockInput[];
   teamRestrictions: TeamRestrictionInput[];
-  refereeAvailability: RefereeAvailabilityInput[];
   teams: Map<string, { name: string; leagueId: string; active: boolean }>;
-  referees: Map<string, { name: string; active: boolean }>;
   fields: Map<string, { name: string; active: boolean }>;
   timeSlots: Map<string, { startTime: string; active: boolean }>;
   allowInterLeague: boolean;
-  requireReferee: boolean;
   /** Veces que ya se han enfrentado estos equipos en partidos oficiales de la fase regular. */
   previousMeetings: number;
 }
@@ -102,22 +90,9 @@ export function checkMatchConflicts(c: MatchCandidate, ctx: ConflictContext): { 
       const r = teamRestriction(ctx.teamRestrictions, t, c.date, c.timeSlotId);
       if (r) warnings.push(`${tName(t)} tiene una restricción de disponibilidad${r.reason ? `: ${r.reason}` : ""}.`);
     }
-    if (c.refereeId) {
-      const ref = ctx.referees.get(c.refereeId);
-      if (ref && !ref.active) errors.push(`El árbitro ${ref.name} está inactivo.`);
-      if (simultaneous.some((m) => m.refereeId === c.refereeId)) {
-        errors.push(`El árbitro ${ref?.name ?? ""} ya tiene otro partido a la misma hora.`);
-      }
-      if (!isRefereeAvailable(ctx.refereeAvailability, c.refereeId, c.date, c.timeSlotId)) {
-        errors.push(`El árbitro ${ref?.name ?? ""} registró que no está disponible el ${c.date}${at}.`);
-      }
-    }
   }
 
   if (c.date && c.timeSlotId && !c.fieldId) warnings.push("El partido no tiene cancha asignada.");
-  if (c.date && c.timeSlotId && !c.refereeId && ctx.requireReferee) {
-    warnings.push("El partido no tiene árbitro asignado y la configuración lo exige.");
-  }
   if (ctx.previousMeetings > 0 && (c.type === "OFICIAL" || c.type === "SUSTITUCION")) {
     warnings.push(`Estos equipos ya se enfrentaron ${ctx.previousMeetings} vez/veces en la fase regular.`);
   }

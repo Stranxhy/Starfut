@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { fromISODate } from "@/lib/dates";
 import { cleanName, normalizeName } from "@/domain/text";
 import { ActionError, runAction, type ActionResult } from "../action";
 import { audit } from "../audit";
@@ -156,108 +155,5 @@ export async function importPlayersCsvAction(fd: FormData): Promise<ActionResult
     );
     revalidatePath("/jugadores");
     return { ok: true, message: `${created.length} jugador(es) importado(s).`, warnings: errors.length ? errors : undefined };
-  });
-}
-
-// ───────────────────────────── Árbitros ─────────────────────────────
-
-const refereeSchema = z.object({ name: zs.text(80, "El nombre"), phone: zs.phone, email: zs.email, notes: zs.optText(500) });
-
-export async function createRefereeAction(fd: FormData): Promise<ActionResult> {
-  return runAction(async (user) => {
-    const d = parseForm(refereeSchema, fd);
-    const nameKey = normalizeName(d.name);
-    if (await prisma.referee.findUnique({ where: { nameKey } })) {
-      throw new ActionError("Ya existe un árbitro con ese nombre.", { fieldErrors: { name: "Duplicado" } });
-    }
-    await prisma.$transaction(async (tx) => {
-      const r = await tx.referee.create({ data: { name: cleanName(d.name), nameKey, phone: d.phone, email: d.email, notes: d.notes } });
-      await audit(tx, { userId: user.id, action: "CREAR", entity: "Árbitro", entityId: r.id, summary: r.name, after: d });
-    });
-    revalidatePath("/arbitros");
-    return { ok: true, message: "Árbitro registrado." };
-  });
-}
-
-export async function updateRefereeAction(fd: FormData): Promise<ActionResult> {
-  return runAction(async (user) => {
-    const id = String(fd.get("id"));
-    const d = parseForm(refereeSchema, fd);
-    const nameKey = normalizeName(d.name);
-    const dup = await prisma.referee.findFirst({ where: { nameKey, id: { not: id } } });
-    if (dup) throw new ActionError("Ya existe un árbitro con ese nombre.", { fieldErrors: { name: "Duplicado" } });
-    const before = await prisma.referee.findUniqueOrThrow({ where: { id } });
-    await prisma.$transaction(async (tx) => {
-      await tx.referee.update({ where: { id }, data: { name: cleanName(d.name), nameKey, phone: d.phone ?? null, email: d.email ?? null, notes: d.notes ?? null } });
-      await audit(tx, {
-        userId: user.id, action: "EDITAR", entity: "Árbitro", entityId: id, summary: d.name,
-        before: { nombre: before.name, telefono: before.phone, correo: before.email }, after: { nombre: d.name, telefono: d.phone, correo: d.email },
-      });
-    });
-    revalidatePath(`/arbitros/${id}`);
-    return { ok: true, message: "Árbitro actualizado." };
-  });
-}
-
-export async function setRefereeActiveAction(fd: FormData): Promise<ActionResult> {
-  return runAction(async (user) => {
-    const id = String(fd.get("id"));
-    const active = fd.get("active") === "1";
-    const reason = (fd.get("reason") as string) || null;
-    const upcoming = await prisma.match.count({
-      where: { refereeId: id, status: { in: ["PROGRAMADO", "REPROGRAMADO"] }, date: { gte: new Date(new Date().toISOString().slice(0, 10)) } },
-    });
-    if (!active && upcoming && !isConfirm(fd)) {
-      throw new ActionError("Asignaciones futuras", {
-        warnings: [`El árbitro tiene ${upcoming} partido(s) próximos asignados. Seguirán asignados hasta que los cambies; aparecerán como alerta.`],
-        needsConfirmation: true,
-      });
-    }
-    await prisma.$transaction(async (tx) => {
-      const r = await tx.referee.update({ where: { id }, data: { active } });
-      await audit(tx, { userId: user.id, action: active ? "ACTIVAR" : "DESACTIVAR", entity: "Árbitro", entityId: id, summary: r.name, reason });
-    });
-    revalidatePath("/arbitros");
-    revalidatePath(`/arbitros/${id}`);
-    return { ok: true, message: active ? "Árbitro activado." : "Árbitro desactivado." };
-  });
-}
-
-const availabilitySchema = z.object({
-  refereeId: zs.id,
-  date: zs.date,
-  timeSlotId: zs.optId,
-  available: zs.bool,
-  note: zs.optText(200),
-});
-
-export async function addAvailabilityAction(fd: FormData): Promise<ActionResult> {
-  return runAction(async (user) => {
-    const d = parseForm(availabilitySchema, fd);
-    const date = fromISODate(d.date);
-    await prisma.$transaction(async (tx) => {
-      await tx.refereeAvailability.deleteMany({ where: { refereeId: d.refereeId, date, timeSlotId: d.timeSlotId ?? null } });
-      await tx.refereeAvailability.create({ data: { refereeId: d.refereeId, date, timeSlotId: d.timeSlotId ?? null, available: d.available, note: d.note } });
-      await audit(tx, { userId: user.id, action: "EDITAR", entity: "Árbitro", entityId: d.refereeId, summary: `Disponibilidad ${d.date}: ${d.available ? "disponible" : "no disponible"}`, after: d });
-    });
-    const conflicts = await prisma.match.count({
-      where: { refereeId: d.refereeId, date, status: { not: "CANCELADO" }, ...(d.timeSlotId ? { timeSlotId: d.timeSlotId } : {}) },
-    });
-    revalidatePath(`/arbitros/${d.refereeId}`);
-    return {
-      ok: true,
-      message: "Disponibilidad registrada.",
-      warnings: !d.available && conflicts ? [`Atención: el árbitro ya tiene ${conflicts} partido(s) asignados en ese periodo. Reasígnalos.`] : undefined,
-    };
-  });
-}
-
-export async function deleteAvailabilityAction(fd: FormData): Promise<ActionResult> {
-  return runAction(async (user) => {
-    const id = String(fd.get("id"));
-    const a = await prisma.refereeAvailability.delete({ where: { id } });
-    await audit(prisma, { userId: user.id, action: "ELIMINAR", entity: "Árbitro", entityId: a.refereeId, summary: "Registro de disponibilidad eliminado", before: a });
-    revalidatePath(`/arbitros/${a.refereeId}`);
-    return { ok: true, message: "Registro eliminado." };
   });
 }

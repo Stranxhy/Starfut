@@ -1,6 +1,6 @@
 // DATOS DE DEMOSTRACIÓN — claramente identificados.
 // Crea una temporada separada "[DEMO] …" (isDemo = true) con equipos, jugadores,
-// árbitros, calendario generado por el algoritmo real y 13 jornadas con
+// calendario generado por el algoritmo real y 13 jornadas con
 // resultados simulados. Nada de esto modifica la temporada oficial.
 //
 //   npm run db:demo            → crea (o recrea) la temporada de demostración
@@ -42,7 +42,6 @@ const KNOWN_SCORERS: Record<string, string[]> = {
 };
 const FIRST = ["Luis", "Jorge", "Carlos", "Miguel", "José", "Alejandro", "Fernando", "Ricardo", "Eduardo", "Javier", "Daniel", "Óscar", "Raúl", "Iván", "Emilio", "Hugo", "Arturo", "Pablo", "Sergio", "Andrés"];
 const LAST = ["García", "Hernández", "López", "Martínez", "González", "Pérez", "Rodríguez", "Sánchez", "Ramírez", "Cruz", "Flores", "Gómez", "Morales", "Vázquez", "Reyes", "Jiménez", "Torres", "Díaz", "Gutiérrez", "Mendoza"];
-const REFEREES = ["Árbitro Demo Alfonso Rivas", "Árbitro Demo Beatriz Luna", "Árbitro Demo César Ortega", "Árbitro Demo Diana Salas", "Árbitro Demo Ernesto Vidal", "Árbitro Demo Fabián Rojas"];
 
 async function clean() {
   const seasons = await prisma.season.findMany({ where: { isDemo: true }, select: { id: true } });
@@ -65,7 +64,6 @@ async function clean() {
       { timeout: 120_000 },
     );
   }
-  await prisma.referee.deleteMany({ where: { isDemo: true } });
   if (seasons.length) console.log(`✔ Temporada de demostración eliminada.`);
 }
 
@@ -129,15 +127,7 @@ async function main() {
       }
     }
   }
-  for (const name of REFEREES) {
-    await prisma.referee.create({ data: { name, nameKey: normalizeName(name), isDemo: true } });
-  }
-  const referees = await prisma.referee.findMany({ where: { isDemo: true } });
   const dates = buildRoundDates(toISODate(start)!, 0, 14);
-  // Un árbitro no disponible en la jornada 14 (demuestra la restricción).
-  await prisma.refereeAvailability.create({
-    data: { refereeId: referees[0].id, date: new Date(`${dates[13]}T00:00:00Z`), timeSlotId: null, available: false, note: "Demo: viaje" },
-  });
 
   console.log("… generando calendario con el algoritmo real");
   const { draft, data } = await createDraft(
@@ -201,7 +191,6 @@ async function main() {
             date: toISODate(m.date),
             timeSlotId: m.timeSlotId,
             fieldId: m.fieldId,
-            refereeId: m.refereeId,
             replacesMatchId: m.id,
             notes: "Demo: amistoso para aprovechar el espacio",
           },
@@ -240,7 +229,7 @@ async function main() {
     if (target) {
       await updateMatch(
         j14[0].id,
-        { timeSlotId: target.timeSlotId, fieldId: target.fieldId, refereeId: null, reason: "Demo: el equipo local solicitó cambio de horario" },
+        { timeSlotId: target.timeSlotId, fieldId: target.fieldId, reason: "Demo: el equipo local solicitó cambio de horario" },
         { confirm: true, userId, markRescheduled: true },
       );
     }

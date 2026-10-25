@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { AlertTriangle, CalendarDays, ChevronRight, ClipboardList, FileDown, Info } from "lucide-react";
+import { AlertTriangle, ChevronRight, ClipboardList, FileDown, Info } from "lucide-react";
 import { requireUser } from "@/server/auth";
 import { getSeasonId } from "@/server/season";
 import { getDashboard } from "@/server/services/dashboard";
-import { buttonClass, Card, EmptyState, LinkButton } from "@/components/ui/core";
+import { matchDays } from "@/server/services/matchdays";
+import { WhatsAppPdfs } from "@/components/WhatsAppPdfs";
+import { Card, EmptyState, LinkButton } from "@/components/ui/core";
 import { formatLong } from "@/lib/dates";
 import { cn } from "@/components/ui/core";
 
-export const metadata = { title: "Dashboard" };
+export const metadata = { title: "Inicio" };
 
 /** Texto oscuro o claro según el color de fondo de la zona. */
 function textOn(hex: string) {
@@ -40,13 +42,15 @@ export default async function DashboardPage() {
       </Card>
     );
   }
-  const d = await getDashboard(seasonId);
+  const [d, days] = await Promise.all([getDashboard(seasonId), matchDays(seasonId)]);
+  // Solo las ligas que ya tienen equipos: evita tarjetas vacías.
+  const leagues = d.leagues.filter((l) => l.activeTeams > 0);
   const t = d.totals;
   const matchDay = d.nextDate ?? d.currentRound?.date ?? null;
 
   return (
     <div className="space-y-5">
-      <h1 className="sr-only">Dashboard</h1>
+      <h1 className="sr-only">Inicio</h1>
 
       {/* Jornada y accesos rápidos */}
       <section className="bg-sport overflow-hidden rounded-2xl px-5 py-6 text-white shadow-lg sm:px-8">
@@ -61,27 +65,17 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {d.nextDate ? (
-              d.leagues.map(({ league }) => (
-                <a
-                  key={league.id}
-                  href={`/api/pdf/rol?date=${d.nextDate}&league=${league.id}`}
-                  target="_blank"
-                  className={buttonClass("secondary", "md", "ring-0 text-brand-800")}
-                >
-                  <CalendarDays className="h-4 w-4" /> Rol {league.name}
-                </a>
-              ))
-            ) : (
-              <Link href="/calendario" className={buttonClass("secondary", "md", "ring-0 text-brand-800")}>
-                <CalendarDays className="h-4 w-4" /> Generar calendario
-              </Link>
-            )}
-            <Link href="/resultados" className={"inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold whitespace-nowrap text-white ring-1 ring-white/50 transition ring-inset hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"}>
-              <ClipboardList className="h-4 w-4" /> Registrar resultados
+            <Link
+              href="/resultados"
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-base font-bold whitespace-nowrap text-brand-800 shadow transition hover:bg-brand-50"
+            >
+              <ClipboardList className="h-5 w-5" /> Registrar resultados
             </Link>
-            <Link href="/reportes" className={"inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold whitespace-nowrap text-white ring-1 ring-white/50 transition ring-inset hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"}>
-              <FileDown className="h-4 w-4" /> Exportar PDF
+            <Link
+              href="/reportes"
+              className="inline-flex h-11 items-center gap-2 rounded-lg px-5 text-base font-semibold whitespace-nowrap text-white ring-1 ring-white/50 transition ring-inset hover:bg-white/15"
+            >
+              <FileDown className="h-5 w-5" /> PDF para WhatsApp
             </Link>
           </div>
         </div>
@@ -110,6 +104,19 @@ export default async function DashboardPage() {
         </ul>
       )}
 
+      {/* PDF para WhatsApp, uno por liga */}
+      {leagues.length > 0 && (
+      <section>
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="text-base font-bold text-zinc-900">Para enviar por WhatsApp</h2>
+          <Link href="/reportes" className="text-sm font-semibold text-brand-700 hover:underline">
+            Elegir otra fecha
+          </Link>
+        </div>
+        <WhatsAppPdfs leagues={leagues.map(({ league }) => ({ id: league.id, name: league.name }))} rolDate={days.rolDate} resultsDate={days.resultsDate} />
+      </section>
+      )}
+
       {/* Partidos y registros */}
       <Card className="p-2">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -120,27 +127,26 @@ export default async function DashboardPage() {
           <Figure label="Reprogramados" value={t.rescheduled} href="/partidos?estado=REPROGRAMADO" dot="bg-violet-500" />
         </div>
         <div className="mx-3 border-t border-zinc-100" />
-        <div className="grid grid-cols-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2">
           <Figure
             label="Equipos"
             value={
               <>
                 {t.teams}
                 <span className="block text-xs font-semibold text-zinc-500">
-                  {d.leagues.map((l) => `${l.league.name}: ${l.activeTeams} activos`).join(" · ")}
+                  {leagues.map((l) => `${l.league.name}: ${l.activeTeams}`).join(" · ")}
                 </span>
               </>
             }
             href="/equipos"
           />
-          <Figure label="Árbitros activos" value={t.activeReferees} href="/arbitros" />
           <Figure label="Sanciones activas" value={t.activeSanctions} href="/sanciones" />
         </div>
       </Card>
 
       {/* Tabla y goleo por liga */}
       <div className="grid gap-5 xl:grid-cols-2">
-        {d.leagues.map(({ league, standings, scorers }) => (
+        {leagues.map(({ league, standings, scorers }) => (
           <Card key={league.id}>
             <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-2">
               <h2 className="font-display text-lg text-zinc-900">{league.name}</h2>

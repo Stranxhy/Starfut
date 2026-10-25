@@ -6,43 +6,47 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 import {
-  BarChart3, CalendarDays, ClipboardList, FileText, History, LayoutDashboard, ListOrdered, Menu, Settings,
-  Goal, Shield, ShieldAlert, Swords, Trophy, Users, UserCog, Whistle, X,
+  CalendarDays, ChevronDown, ClipboardList, FileText, Goal, History, Home, ListOrdered, Menu, Settings, Shield,
+  ShieldAlert, Swords, Trophy, UserCog, Users, Network, X, type LucideIcon,
 } from "lucide-react";
 
-const NAV = [
-  { group: "General", items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }] },
+type Item = { href: string; label: string; icon: LucideIcon };
+type Group = { group?: string; items: Item[]; collapsible?: boolean };
+
+// Menú organizado por tareas: lo que se usa cada domingo primero; los ajustes, plegados.
+const NAV: Group[] = [
+  { items: [{ href: "/", label: "Inicio", icon: Home }] },
   {
-    group: "Competencia",
+    group: "Domingo",
     items: [
-      { href: "/ligas", label: "Ligas", icon: Trophy },
-      { href: "/equipos", label: "Equipos", icon: Shield },
-      { href: "/jugadores", label: "Jugadores", icon: Users },
-      { href: "/arbitros", label: "Árbitros", icon: Whistle },
-    ],
-  },
-  {
-    group: "Programación",
-    items: [
-      { href: "/calendario", label: "Calendario y jornadas", icon: CalendarDays },
-      { href: "/partidos", label: "Partidos", icon: Swords },
       { href: "/resultados", label: "Resultados", icon: ClipboardList },
+      { href: "/partidos", label: "Partidos", icon: Swords },
+      { href: "/calendario", label: "Calendario", icon: CalendarDays },
     ],
   },
   {
-    group: "Estadísticas",
+    group: "Clasificación",
     items: [
       { href: "/tabla", label: "Tabla general", icon: ListOrdered },
-      { href: "/goleo", label: "Tabla de goleo", icon: Goal },
-      { href: "/sanciones", label: "Sanciones", icon: ShieldAlert },
-      { href: "/eliminatorias", label: "Eliminatorias", icon: BarChart3 },
+      { href: "/goleo", label: "Goleo", icon: Goal },
+      { href: "/eliminatorias", label: "Eliminatorias", icon: Network },
     ],
   },
-  { group: "Documentos", items: [{ href: "/reportes", label: "Reportes PDF", icon: FileText }] },
   {
-    group: "Administración",
+    group: "Registro",
     items: [
-      { href: "/configuracion", label: "Configuración del torneo", icon: Settings },
+      { href: "/equipos", label: "Equipos", icon: Shield },
+      { href: "/jugadores", label: "Jugadores", icon: Users },
+      { href: "/sanciones", label: "Sanciones", icon: ShieldAlert },
+    ],
+  },
+  { items: [{ href: "/reportes", label: "PDF para WhatsApp", icon: FileText }] },
+  {
+    group: "Ajustes",
+    collapsible: true,
+    items: [
+      { href: "/ligas", label: "Ligas", icon: Trophy },
+      { href: "/configuracion", label: "Configuración", icon: Settings },
       { href: "/historial", label: "Historial de cambios", icon: History },
       { href: "/usuarios", label: "Usuarios y respaldos", icon: UserCog },
     ],
@@ -52,37 +56,57 @@ const NAV = [
 export function Sidebar({ venue }: { venue: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  useEffect(() => setOpen(false), [pathname]);
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
+  const settingsActive = NAV.find((g) => g.collapsible)!.items.some((i) => isActive(i.href));
+  const [showSettings, setShowSettings] = useState(settingsActive);
+  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    if (settingsActive) setShowSettings(true);
+  }, [settingsActive]);
+
+  const link = (it: Item) => {
+    const Icon = it.icon;
+    const active = isActive(it.href);
+    return (
+      <li key={it.href}>
+        <Link
+          href={it.href}
+          aria-current={active ? "page" : undefined}
+          className={clsx(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
+            active ? "bg-white text-brand-800 shadow" : "text-white/85 hover:bg-white/10 hover:text-white",
+          )}
+        >
+          <Icon className="h-4 w-4 shrink-0" aria-hidden />
+          {it.label}
+        </Link>
+      </li>
+    );
+  };
 
   const nav = (
-    <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4" aria-label="Navegación principal">
-      {NAV.map((g) => (
-        <div key={g.group}>
-          <p className="mb-1 px-3 text-[10px] font-bold tracking-[0.18em] text-white/40 uppercase">{g.group}</p>
-          <ul className="space-y-0.5">
-            {g.items.map((it) => {
-              const Icon = it.icon;
-              const active = isActive(it.href);
-              return (
-                <li key={it.href}>
-                  <Link
-                    href={it.href}
-                    aria-current={active ? "page" : undefined}
-                    className={clsx(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
-                      active ? "bg-white text-brand-800 shadow" : "text-white/80 hover:bg-white/10 hover:text-white",
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                    {it.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+    <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4" aria-label="Navegación principal">
+      {NAV.map((g, gi) =>
+        g.collapsible ? (
+          <div key={gi} className="border-t border-white/10 pt-3">
+            <button
+              type="button"
+              onClick={() => setShowSettings((v) => !v)}
+              aria-expanded={showSettings}
+              className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-bold tracking-[0.15em] text-white/50 uppercase hover:text-white/80"
+            >
+              {g.group}
+              <ChevronDown className={clsx("h-4 w-4 transition", showSettings && "rotate-180")} aria-hidden />
+            </button>
+            {showSettings && <ul className="mt-1 space-y-0.5">{g.items.map(link)}</ul>}
+          </div>
+        ) : (
+          <div key={gi}>
+            {g.group && <p className="mb-1 px-3 text-[11px] font-bold tracking-[0.15em] text-white/45 uppercase">{g.group}</p>}
+            <ul className="space-y-0.5">{g.items.map(link)}</ul>
+          </div>
+        ),
+      )}
     </nav>
   );
 

@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/server/auth";
 import { getSeasonId } from "@/server/season";
 import { logoutAction } from "@/server/actions/auth";
+import { Suspense } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { NavigationProgress } from "@/components/layout/NavigationProgress";
 import { SeasonSwitcher } from "@/components/layout/SeasonSwitcher";
 import { ROLE } from "@/lib/labels";
 
@@ -19,6 +21,9 @@ export default async function PanelLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-dvh">
+      <Suspense>
+        <NavigationProgress />
+      </Suspense>
       <Sidebar venue={current?.venue.name ?? "Starfutbol"} />
       <div className="lg:pl-64">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 pr-3 pl-16 backdrop-blur sm:pr-6 lg:pl-6">

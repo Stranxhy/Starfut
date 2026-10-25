@@ -13,7 +13,7 @@ const token = await new SignJWT({ role: admin.role, name: admin.name })
 
 const extra = process.argv.slice(3);
 const paths = extra.length ? extra : [
-  "/", "/ligas", "/equipos", "/jugadores", "/arbitros", "/calendario", "/partidos", "/resultados", "/tabla", "/goleo",
+  "/", "/ligas", "/equipos", "/jugadores", "/calendario", "/partidos", "/resultados", "/tabla", "/goleo",
   "/sanciones", "/eliminatorias", "/reportes", "/historial", "/usuarios", "/configuracion",
   "/configuracion/horarios-canchas", "/configuracion/reglas", "/configuracion/eliminatorias", "/configuracion/temporadas",
   "/configuracion/catalogos",

@@ -35,13 +35,6 @@ export function RolDoc({ data }: { data: DayDocData }) {
       ),
     },
     { key: "away", header: "Equipo", render: (m) => withLeague(m.awayId, m.away) },
-    {
-      key: "ref",
-      header: "Árbitro",
-      width: data.showLeagueColumn ? 84 : 100,
-      render: (m) => m.referee ?? "Por asignar",
-      textStyle: { textTransform: "none", fontWeight: 700, fontSize: 6.8 },
-    },
     ...(data.showLeagueColumn
       ? [{ key: "league", header: "Liga", width: 52, render: (m: MatchLine) => teamLeague[m.homeId] ?? m.league ?? "—", textStyle: { fontSize: 6.8 } }]
       : []),

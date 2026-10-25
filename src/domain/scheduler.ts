@@ -7,17 +7,8 @@
 //    mínimo (algoritmo húngaro) entre partidos y espacios disponibles. Las
 //    restricciones obligatorias tienen costo prohibitivo; las preferencias
 //    (repartir horarios, evitar horarios extremos repetidos) costo moderado.
-// 3. Árbitros: por cada horario, asignación de costo mínimo equilibrando la
-//    carga y evitando repetir árbitro con los mismos equipos.
 
-import {
-  isFieldBlocked,
-  isRefereeAvailable,
-  teamRestriction,
-  type FieldBlockInput,
-  type RefereeAvailabilityInput,
-  type TeamRestrictionInput,
-} from "./availability";
+import { isFieldBlocked, teamRestriction, type FieldBlockInput, type TeamRestrictionInput } from "./availability";
 import { hungarian } from "./hungarian";
 import { generateLeagueRounds, pairKey, roundsPerCycle, seededRandom, type RoundPairings } from "./roundRobin";
 
@@ -27,11 +18,8 @@ export interface SchedulerInput {
   rounds: { number: number; date: string }[];
   timeSlots: { id: string; startTime: string }[];
   fields: { id: string; name: string }[];
-  referees: { id: string; name: string }[];
   fieldBlocks?: FieldBlockInput[];
   teamRestrictions?: TeamRestrictionInput[];
-  refereeAvailability?: RefereeAvailabilityInput[];
-  requireReferee: boolean;
   seed: number;
   /** Enfrentamientos ya existentes (jornadas que se conservan): pairKey → veces. */
   existingPairs?: Record<string, number>;
@@ -48,7 +36,6 @@ export interface DraftMatch {
   awayTeamId: string;
   timeSlotId: string | null;
   fieldId: string | null;
-  refereeId: string | null;
   /** 0 = primer enfrentamiento entre ambos; n = n-ésima repetición. */
   repeatIndex: number;
   conflicts: string[];
@@ -79,12 +66,10 @@ export interface ScheduleDraftData {
     totalMatches: number;
     repeatedMatches: number;
     conflicts: number;
-    matchesWithoutReferee: number;
     unscheduledMatches: number;
     leagues: LeagueSummary[];
     /** teamId → timeSlotId → partidos */
     slotDistribution: Record<string, Record<string, number>>;
-    refereeLoad: Record<string, number>;
     seed: number;
   };
   warnings: string[];
@@ -99,10 +84,8 @@ export function generateSchedule(input: SchedulerInput): ScheduleDraftData {
   const errors: string[] = [];
   const blocks = input.fieldBlocks ?? [];
   const restrictions = input.teamRestrictions ?? [];
-  const availability = input.refereeAvailability ?? [];
   const teamName = new Map<string, string>();
   for (const l of input.leagues) for (const t of l.teams) teamName.set(t.id, t.name);
-  const tsLabel = new Map(input.timeSlots.map((t) => [t.id, t.startTime]));
 
   const emptyResult = (): ScheduleDraftData => ({
     rounds: [],
@@ -110,11 +93,9 @@ export function generateSchedule(input: SchedulerInput): ScheduleDraftData {
       totalMatches: 0,
       repeatedMatches: 0,
       conflicts: 0,
-      matchesWithoutReferee: 0,
       unscheduledMatches: 0,
       leagues: [],
       slotDistribution: {},
-      refereeLoad: {},
       seed: input.seed,
     },
     warnings,
@@ -139,9 +120,6 @@ export function generateSchedule(input: SchedulerInput): ScheduleDraftData {
   }
   if (errors.length) return emptyResult();
 
-  if (input.referees.length === 0) {
-    warnings.push("No hay árbitros activos: los partidos quedarán sin árbitro asignado.");
-  }
 
   const rnd = seededRandom(input.seed);
   const roundCount = input.rounds.length;
@@ -198,13 +176,11 @@ export function generateSchedule(input: SchedulerInput): ScheduleDraftData {
     });
   }
 
-  // ── 2 y 3. Horarios, canchas y árbitros por fecha ──
+  // ── 2. Horarios y canchas por fecha ──
   const slotUsage: Record<string, Record<string, number>> = {};
   const extremeCount: Record<string, number> = {};
   const lastSlot: Record<string, string> = {};
   const fieldUsage: Record<string, Record<string, number>> = {};
-  const refereeLoad: Record<string, number> = Object.fromEntries(input.referees.map((r) => [r.id, 0]));
-  const refereeTeam: Record<string, Record<string, number>> = {};
   const pairCounts: Record<string, number> = { ...existing };
   const lastTs = input.timeSlots.length - 1;
 
@@ -229,7 +205,6 @@ export function generateSchedule(input: SchedulerInput): ScheduleDraftData {
           awayTeamId: p.away,
           timeSlotId: null,
           fieldId: null,
-          refereeId: null,
           repeatIndex,
           conflicts: [],
         });
@@ -237,20 +212,11 @@ export function generateSchedule(input: SchedulerInput): ScheduleDraftData {
     }
 
     // Espacios disponibles de la fecha
-    const refsAt = new Map(
-      input.timeSlots.map((ts) => [
-        ts.id,
-        input.referees.filter((r) => isRefereeAvailable(availability, r.id, date, ts.id)).length,
-      ]),
-    );
-    const slots: { tsId: string; fieldId: string; ti: number; fi: number; overRefCap: boolean }[] = [];
+    const slots: { tsId: string; fieldId: string; ti: number; fi: number }[] = [];
     input.timeSlots.forEach((ts, ti) => {
-      let open = 0;
       input.fields.forEach((f, fi) => {
         if (isFieldBlocked(blocks, f.id, date, ts.id)) return;
-        const cap = refsAt.get(ts.id) ?? 0;
-        slots.push({ tsId: ts.id, fieldId: f.id, ti, fi, overRefCap: input.referees.length > 0 && open >= cap });
-        open++;
+        slots.push({ tsId: ts.id, fieldId: f.id, ti, fi });
       });
     });
 
@@ -266,7 +232,6 @@ export function generateSchedule(input: SchedulerInput): ScheduleDraftData {
             c += fieldUsage[t]?.[s.fieldId] ?? 0;
           }
           c += s.fi * 1.5 + s.ti * 0.5;
-          if (s.overRefCap) c += 400;
           return c;
         });
         // Columnas ficticias: permiten dejar un partido sin espacio si no hay alternativa.
@@ -301,41 +266,6 @@ export function generateSchedule(input: SchedulerInput): ScheduleDraftData {
       });
     }
 
-    // Árbitros por horario
-    for (const ts of input.timeSlots) {
-      const inSlot = matches.filter((m) => m.timeSlotId === ts.id);
-      if (inSlot.length === 0) continue;
-      const refs = input.referees.filter((r) => isRefereeAvailable(availability, r.id, date, ts.id));
-      if (refs.length > 0) {
-        const cost = inSlot.map((m) => {
-          const row = refs.map(
-            (r) =>
-              10 * (refereeLoad[r.id] ?? 0) +
-              4 * ((refereeTeam[r.id]?.[m.homeTeamId] ?? 0) + (refereeTeam[r.id]?.[m.awayTeamId] ?? 0)),
-          );
-          for (let i = 0; i < inSlot.length; i++) row.push(UNASSIGNED);
-          return row;
-        });
-        const assignment = hungarian(cost);
-        inSlot.forEach((m, i) => {
-          const r = refs[assignment[i]];
-          if (!r) return;
-          m.refereeId = r.id;
-          refereeLoad[r.id] = (refereeLoad[r.id] ?? 0) + 1;
-          refereeTeam[r.id] ??= {};
-          for (const t of [m.homeTeamId, m.awayTeamId]) refereeTeam[r.id][t] = (refereeTeam[r.id][t] ?? 0) + 1;
-        });
-      }
-      for (const m of inSlot) {
-        if (!m.refereeId) {
-          m.conflicts.push(
-            `Sin árbitro disponible a las ${tsLabel.get(ts.id)}` +
-              (input.requireReferee ? ": asignación obligatoria pendiente." : "."),
-          );
-        }
-      }
-    }
-
     const used = matches.filter((m) => m.fieldId).length;
     return { number: round.number, date, matches, byes, availableSlots: slots.length, unusedSlots: slots.length - used };
   });
@@ -353,11 +283,9 @@ export function generateSchedule(input: SchedulerInput): ScheduleDraftData {
       totalMatches: all.length,
       repeatedMatches: repeated,
       conflicts: all.filter((m) => m.conflicts.length > 0).length,
-      matchesWithoutReferee: all.filter((m) => m.timeSlotId && !m.refereeId).length,
       unscheduledMatches: all.filter((m) => !m.timeSlotId).length,
       leagues: leagueSummaries,
       slotDistribution: slotUsage,
-      refereeLoad,
       seed: input.seed,
     },
     warnings,

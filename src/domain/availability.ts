@@ -14,13 +14,6 @@ export interface TeamRestrictionInput {
   reason?: string | null;
 }
 
-export interface RefereeAvailabilityInput {
-  refereeId: string;
-  date: string;
-  timeSlotId: string | null;
-  available: boolean;
-}
-
 export function isFieldBlocked(blocks: FieldBlockInput[], fieldId: string, date: string, timeSlotId: string): boolean {
   return blocks.some(
     (b) => b.fieldId === fieldId && b.date === date && (b.timeSlotId === null || b.timeSlotId === timeSlotId),
@@ -45,22 +38,4 @@ export function teamRestriction(
 
 export function teamUnavailableAllDay(restrictions: TeamRestrictionInput[], teamId: string, date: string): boolean {
   return restrictions.some((r) => r.teamId === teamId && r.date === date && r.timeSlotId === null);
-}
-
-/**
- * Un árbitro activo está disponible salvo que exista un registro de NO
- * disponibilidad para esa fecha (todo el día) o para ese horario.
- */
-export function isRefereeAvailable(
-  availability: RefereeAvailabilityInput[],
-  refereeId: string,
-  date: string,
-  timeSlotId: string,
-): boolean {
-  const records = availability.filter((a) => a.refereeId === refereeId && a.date === date);
-  const slotRecord = records.find((a) => a.timeSlotId === timeSlotId);
-  if (slotRecord) return slotRecord.available;
-  const dayRecord = records.find((a) => a.timeSlotId === null);
-  if (dayRecord) return dayRecord.available;
-  return true;
 }

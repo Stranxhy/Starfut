@@ -259,68 +259,6 @@ export function TransferPlayerButton({ action, playerId, teams }: { action: Serv
   );
 }
 
-// ───────── Árbitros ─────────
-export function RefereeFields({ referee }: { referee?: { id: string; name: string; phone: string | null; email: string | null; notes: string | null } }) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {referee && <input type="hidden" name="id" value={referee.id} />}
-      <TextField name="name" label="Nombre completo" required defaultValue={referee?.name} maxLength={80} className="sm:col-span-2" />
-      <TextField name="phone" label="Teléfono" hint="(opcional)" defaultValue={referee?.phone ?? ""} inputMode="tel" />
-      <TextField name="email" label="Correo" hint="(opcional)" type="email" defaultValue={referee?.email ?? ""} />
-      <TextArea name="notes" label="Observaciones" defaultValue={referee?.notes ?? ""} className="sm:col-span-2" />
-    </div>
-  );
-}
-
-export function RefereeCreateButton({ action }: { action: ServerAction }) {
-  return (
-    <ModalButton label="Nuevo árbitro" title="Registrar árbitro" icon={<Plus className="h-4 w-4" />}>
-      {(close) => (
-        <ActionForm action={action} onSuccess={close}>
-          <RefereeFields />
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="secondary" onClick={close}>
-              Cancelar
-            </Button>
-            <SubmitButton>Registrar</SubmitButton>
-          </div>
-        </ActionForm>
-      )}
-    </ModalButton>
-  );
-}
-
-export function RefereeEditForm({ action, referee }: { action: ServerAction; referee: { id: string; name: string; phone: string | null; email: string | null; notes: string | null } }) {
-  return (
-    <ActionForm action={action}>
-      <RefereeFields referee={referee} />
-      <div className="mt-4 flex justify-end">
-        <SubmitButton>Guardar cambios</SubmitButton>
-      </div>
-    </ActionForm>
-  );
-}
-
-export function AvailabilityForm({ action, refereeId, slots }: { action: ServerAction; refereeId: string; slots: Opt[] }) {
-  return (
-    <ActionForm action={action} resetOnSuccess className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[10rem_10rem_10rem_1fr_auto] lg:items-end">
-      <input type="hidden" name="refereeId" value={refereeId} />
-      <TextField name="date" label="Fecha" type="date" required />
-      <SelectField name="timeSlotId" label="Horario" options={slots} placeholder="Todo el día" />
-      <SelectField
-        name="available"
-        label="Disponibilidad"
-        options={[
-          { value: "0", label: "No disponible" },
-          { value: "1", label: "Disponible (confirmado)" },
-        ]}
-      />
-      <TextField name="note" label="Nota" maxLength={200} />
-      <SubmitButton>Registrar</SubmitButton>
-    </ActionForm>
-  );
-}
-
 export function SimpleToggleForm({ action, hidden, label, variant = "secondary" }: { action: ServerAction; hidden: Record<string, string>; label: string; variant?: "secondary" | "danger" | "primary" }) {
   return (
     <ActionForm action={action} confirmLabel="Confirmar">

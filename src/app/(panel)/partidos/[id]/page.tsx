@@ -29,9 +29,8 @@ export default async function PartidoPage({ params }: { params: Promise<{ id: st
   });
   if (!m) notFound();
   const ctx = await getSeasonContext(m.seasonId);
-  const [teams, referees] = await Promise.all([
+  const [teams] = await Promise.all([
     prisma.team.findMany({ where: { seasonId: m.seasonId }, orderBy: { name: "asc" }, include: { league: { select: { name: true } } } }),
-    prisma.referee.findMany({ where: { OR: [{ active: true }, { id: m.refereeId ?? "" }] }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const locked = m.locked || !!m.round?.locked;
   const date = toISODate(m.date);
@@ -41,7 +40,6 @@ export default async function PartidoPage({ params }: { params: Promise<{ id: st
     teams: teamOpts,
     slots: ctx.timeSlots.filter((t) => t.active || t.id === m.timeSlotId),
     fields: ctx.venue.fields.filter((f) => f.active || f.id === m.fieldId),
-    referees,
     initial: {
       type: m.type,
       homeTeamId: m.homeTeamId,
@@ -49,7 +47,6 @@ export default async function PartidoPage({ params }: { params: Promise<{ id: st
       date,
       timeSlotId: m.timeSlotId,
       fieldId: m.fieldId,
-      refereeId: m.refereeId,
       countsForStandings: m.countsForStandings,
       notes: m.notes,
     },
@@ -100,8 +97,6 @@ export default async function PartidoPage({ params }: { params: Promise<{ id: st
             <dd>{m.timeSlot?.startTime ?? "Sin asignar"}</dd>
             <dt className="text-zinc-500">Cancha</dt>
             <dd>{m.field?.name ?? "Sin asignar"}</dd>
-            <dt className="text-zinc-500">Árbitro</dt>
-            <dd className={m.referee ? "" : "font-semibold text-red-700"}>{m.referee?.name ?? "Sin asignar"}</dd>
             <dt className="text-zinc-500">Naturaleza</dt>
             <dd>
               {MATCH_TYPE[m.type]?.label} · {m.countsForStandings ? "cuenta para la clasificación" : "no altera la clasificación"}

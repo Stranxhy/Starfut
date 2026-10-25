@@ -81,11 +81,10 @@ describe("goleo", () => {
 describe("conflictos", () => {
   const ctx = (over: Partial<ConflictContext> = {}): ConflictContext => ({
     sameDateMatches: [
-      { id: "x", date: "2026-10-11", timeSlotId: "ts1", fieldId: "f1", refereeId: "r1", homeTeamId: "C", awayTeamId: "D" },
+      { id: "x", date: "2026-10-11", timeSlotId: "ts1", fieldId: "f1", homeTeamId: "C", awayTeamId: "D" },
     ],
     fieldBlocks: [],
     teamRestrictions: [],
-    refereeAvailability: [],
     teams: new Map([
       ["A", { name: "A", leagueId: "L1", active: true }],
       ["B", { name: "B", leagueId: "L1", active: true }],
@@ -93,37 +92,27 @@ describe("conflictos", () => {
       ["D", { name: "D", leagueId: "L1", active: true }],
       ["E", { name: "E", leagueId: "L2", active: true }],
     ]),
-    referees: new Map([["r1", { name: "R1", active: true }], ["r2", { name: "R2", active: true }]]),
     fields: new Map([["f1", { name: "Cancha 1", active: true }], ["f2", { name: "Cancha 2", active: true }]]),
     timeSlots: new Map([["ts1", { startTime: "08:10", active: true }]]),
     allowInterLeague: false,
-    requireReferee: true,
     previousMeetings: 0,
     ...over,
   });
   const base = { date: "2026-10-11", timeSlotId: "ts1", homeTeamId: "A", awayTeamId: "B", type: "OFICIAL" as const };
-  it("detecta cancha ocupada, árbitro ocupado y equipo simultáneo", () => {
-    const r = checkMatchConflicts({ ...base, fieldId: "f1", refereeId: "r1", awayTeamId: "C" }, ctx());
+  it("detecta cancha ocupada y equipo simultáneo", () => {
+    const r = checkMatchConflicts({ ...base, fieldId: "f1", awayTeamId: "C" }, ctx());
     expect(r.errors.some((e) => e.includes("ocupada"))).toBe(true);
-    expect(r.errors.some((e) => e.includes("árbitro"))).toBe(true);
     expect(r.errors.some((e) => e.includes("misma hora"))).toBe(true);
   });
   it("sin conflictos en espacio libre", () => {
-    const r = checkMatchConflicts({ ...base, fieldId: "f2", refereeId: "r2" }, ctx());
+    const r = checkMatchConflicts({ ...base, fieldId: "f2" }, ctx());
     expect(r.errors).toEqual([]);
   });
   it("partidos entre ligas requieren tipo extraordinario", () => {
-    expect(checkMatchConflicts({ ...base, awayTeamId: "E", fieldId: "f2", refereeId: "r2" }, ctx()).errors.length).toBe(1);
-    const ok = checkMatchConflicts({ ...base, awayTeamId: "E", fieldId: "f2", refereeId: "r2", type: "INTERLIGA" }, ctx());
+    expect(checkMatchConflicts({ ...base, awayTeamId: "E", fieldId: "f2" }, ctx()).errors.length).toBe(1);
+    const ok = checkMatchConflicts({ ...base, awayTeamId: "E", fieldId: "f2", type: "INTERLIGA" }, ctx());
     expect(ok.errors).toEqual([]);
     expect(ok.warnings.length).toBeGreaterThan(0);
-  });
-  it("respeta disponibilidad del árbitro", () => {
-    const r = checkMatchConflicts(
-      { ...base, fieldId: "f2", refereeId: "r2" },
-      ctx({ refereeAvailability: [{ refereeId: "r2", date: "2026-10-11", timeSlotId: null, available: false }] }),
-    );
-    expect(r.errors.some((e) => e.includes("no está disponible"))).toBe(true);
   });
 });
 

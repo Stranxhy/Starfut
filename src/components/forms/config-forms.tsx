@@ -21,7 +21,6 @@ export function GeneralForm({
     startDate: string;
     weekday: number;
     regularRounds: number;
-    requireReferee: boolean;
     allowInterLeague: boolean;
     excludedDates: string[];
   };
@@ -37,7 +36,6 @@ export function GeneralForm({
       <TextField name="regularRounds" type="number" min={1} max={60} label="Jornadas de fase regular" required defaultValue={v.regularRounds} />
       <TextArea name="excludedDates" label="Fechas sin jornada" hint="(AAAA-MM-DD, una por línea)" defaultValue={v.excludedDates.join("\n")} rows={3} className="sm:col-span-2" />
       <div className="space-y-3 sm:col-span-2 lg:col-span-3">
-        <CheckboxField name="requireReferee" defaultChecked={v.requireReferee} label="La asignación de árbitro es obligatoria" hint="Los partidos sin árbitro se señalan como alerta y requieren confirmación explícita." />
         <CheckboxField name="allowInterLeague" defaultChecked={v.allowInterLeague} label="Permitir combinar equipos de ligas diferentes" hint="Para completar la jornada cuando un equipo se queda sin partido. El calendario automático nunca mezcla ligas." />
       </div>
       <div className="flex justify-end sm:col-span-2 lg:col-span-3">

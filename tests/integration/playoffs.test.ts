@@ -11,7 +11,7 @@ let ranking: string[];
 
 /** Liga de 12 equipos: el equipo i vence a todos los de índice mayor (orden de tabla determinista). */
 beforeAll(async () => {
-  f = await createFixture({ teamsA: 12, teamsB: 2, referees: 6 });
+  f = await createFixture({ teamsA: 12, teamsB: 2 });
   const teams = f.teamsA;
   let day = 0;
   const pending: { home: string; away: string }[] = [];
@@ -75,7 +75,7 @@ describe("eliminatorias (base de datos)", () => {
     const before = await getLeagueStandings(f.leagues[0].id);
     const { match, warnings } = await createMatch(
       f.season.id,
-      { type: "OFICIAL", homeTeamId: ranking[0], awayTeamId: ranking[1], date: "2027-01-03", timeSlotId: f.timeSlots[5].id, fieldId: f.fields[4].id, refereeId: null },
+      { type: "OFICIAL", homeTeamId: ranking[0], awayTeamId: ranking[1], date: "2027-01-03", timeSlotId: f.timeSlots[5].id, fieldId: f.fields[4].id },
       { confirm: true, userId: f.userId },
     );
     expect(match.type).toBe("AMISTOSO");

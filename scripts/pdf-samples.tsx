@@ -71,7 +71,6 @@ async function main() {
     ["eliminatorias_liga2", "eliminatorias", { league: liga2.id }],
     ["equipos_todos", "equipos", {}],
     ["equipos_liga2", "equipos", { league: liga2.id }],
-    ["arbitros", "arbitros", {}],
     ["calendario_completo", "calendario", {}],
     ["calendario_liga2", "calendario", { league: liga2.id }],
     ["historial_todas", "historial-resultados", {}],

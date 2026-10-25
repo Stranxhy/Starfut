@@ -9,14 +9,14 @@ const date = "2026-09-13";
 
 beforeAll(async () => {
   // Liga A con 5 equipos (uno descansa) y liga B con 4.
-  f = await createFixture({ teamsA: 5, teamsB: 4, referees: 4 });
+  f = await createFixture({ teamsA: 5, teamsB: 4 });
   const [a1, a2, a3, a4] = f.teamsA;
   const [b1, b2, b3, b4] = f.teamsB;
   await quickMatch(f, a1.id, a2.id, date, 0, 0);
   await quickMatch(f, a3.id, a4.id, date, 0, 1);
   await quickMatch(f, b1.id, b2.id, date, 1, 0, { leagueId: f.leagues[1].id });
   const cancelled = await quickMatch(f, b3.id, b4.id, date, 1, 1, { leagueId: f.leagues[1].id });
-  await cancelMatch(cancelled.id, "No se presentó el árbitro de la cancha", f.userId);
+  await cancelMatch(cancelled.id, "El rival no se presentó", f.userId);
 });
 
 describe("completar jornada (base de datos)", () => {
@@ -35,9 +35,9 @@ describe("completar jornada (base de datos)", () => {
     expect(p.unpaired.map((t) => t.id)).toEqual([f.teamsA[4].id]);
   });
 
-  it("combina entre ligas a los equipos que descansan, con espacio y árbitro libres, y se puede crear", async () => {
+  it("combina entre ligas a los equipos que descansan, con espacio libre, y se puede crear", async () => {
     // Cada liga con número impar: descansa un equipo de cada una.
-    const g = await createFixture({ teamsA: 5, teamsB: 3, referees: 3 });
+    const g = await createFixture({ teamsA: 5, teamsB: 3 });
     const d2 = "2026-09-20";
     await quickMatch(g, g.teamsA[0].id, g.teamsA[1].id, d2, 0, 0);
     await quickMatch(g, g.teamsA[2].id, g.teamsA[3].id, d2, 0, 1);
@@ -48,10 +48,9 @@ describe("completar jornada (base de datos)", () => {
     expect(pair.crossLeague).toBe(true);
     expect([pair.home, pair.away].sort()).toEqual([g.teamsA[4].id, g.teamsB[2].id].sort());
     expect(pair.timeSlotId).not.toBeNull();
-    expect(pair.refereeId).not.toBeNull();
     const { match } = await createMatch(
       g.season.id,
-      { type: "INTERLIGA", countsForStandings: false, homeTeamId: pair.home, awayTeamId: pair.away, date: d2, timeSlotId: pair.timeSlotId, fieldId: pair.fieldId, refereeId: pair.refereeId },
+      { type: "INTERLIGA", countsForStandings: false, homeTeamId: pair.home, awayTeamId: pair.away, date: d2, timeSlotId: pair.timeSlotId, fieldId: pair.fieldId },
       { confirm: true, userId: g.userId },
     );
     expect(match.status).toBe("PROGRAMADO");

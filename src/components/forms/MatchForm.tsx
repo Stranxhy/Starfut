@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ActionForm, SubmitButton, TextArea, type ServerAction } from "@/components/ui/form";
 import { inputClass } from "@/components/ui/core";
-import { freeRefereesAction, freeSlotsAction } from "@/server/actions/matches";
+import { freeSlotsAction } from "@/server/actions/matches";
 import { MATCH_TYPE } from "@/lib/labels";
 
 interface TeamOpt {
@@ -22,7 +22,6 @@ export interface MatchFormProps {
   teams: TeamOpt[];
   slots: { id: string; startTime: string }[];
   fields: { id: string; name: string }[];
-  referees: { id: string; name: string }[];
   initial?: {
     type?: string;
     homeTeamId?: string;
@@ -30,7 +29,6 @@ export interface MatchFormProps {
     date?: string | null;
     timeSlotId?: string | null;
     fieldId?: string | null;
-    refereeId?: string | null;
     countsForStandings?: boolean;
     notes?: string | null;
   };
@@ -49,9 +47,7 @@ export function MatchForm(p: MatchFormProps) {
   const [date, setDate] = useState(p.initial?.date ?? "");
   const [slot, setSlot] = useState(p.initial?.timeSlotId ?? "");
   const [field, setField] = useState(p.initial?.fieldId ?? "");
-  const [referee, setReferee] = useState(p.initial?.refereeId ?? "");
   const [free, setFree] = useState<{ timeSlotId: string; startTime: string; fieldId: string; fieldName: string }[] | null>(null);
-  const [freeRefs, setFreeRefs] = useState<Set<string> | null>(null);
   const [, start] = useTransition();
   const teamsEditable = p.teamsEditable ?? true;
 
@@ -62,14 +58,6 @@ export function MatchForm(p: MatchFormProps) {
     }
     start(async () => setFree(await freeSlotsAction(date)));
   }, [date]);
-
-  useEffect(() => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !slot) {
-      setFreeRefs(null);
-      return;
-    }
-    start(async () => setFreeRefs(new Set((await freeRefereesAction(date, slot, p.matchId)).map((r) => r.id))));
-  }, [date, slot, p.matchId]);
 
   const homeLeague = p.teams.find((t) => t.id === home)?.leagueId;
   const crossLeague = type === "INTERLIGA" || type === "AMISTOSO";
@@ -165,7 +153,7 @@ export function MatchForm(p: MatchFormProps) {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-3">
         <div>
           <label className="mb-1 block text-xs font-semibold text-zinc-700" htmlFor="mf-date">Fecha</label>
           <input id="mf-date" type="date" name="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
@@ -192,18 +180,6 @@ export function MatchForm(p: MatchFormProps) {
                 </option>
               );
             })}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-zinc-700" htmlFor="mf-ref">Árbitro</label>
-          <select id="mf-ref" name="refereeId" value={referee} onChange={(e) => setReferee(e.target.value)} className={inputClass}>
-            <option value="">Sin asignar</option>
-            {p.referees.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-                {freeRefs && !freeRefs.has(r.id) ? " (no disponible)" : ""}
-              </option>
-            ))}
           </select>
         </div>
       </div>

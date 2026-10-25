@@ -62,9 +62,6 @@ configura en Configuración → Puntuación y desempates (vacío = sin validar).
 
 ## Decisiones técnicas relevantes
 
-- Un árbitro activo se considera disponible salvo que exista un registro de no disponibilidad.
-- Si la asignación de árbitro es obligatoria, los partidos sin árbitro se señalan como alerta y la
-  confirmación del calendario exige aceptar explícitamente esa situación.
 - Las estadísticas no se almacenan: se recalculan siempre desde los resultados oficiales.
 - Los empates que los criterios no resuelven se conservan; al cerrar la fase regular se exige el orden
   oficial con su justificación si afectan la clasificación.

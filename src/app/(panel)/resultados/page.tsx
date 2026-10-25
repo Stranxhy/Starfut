@@ -55,8 +55,11 @@ export default async function ResultadosPage({ searchParams }: { searchParams: P
         actions={
           selected ? (
             <>
-              <LinkButton href={`/api/pdf/resultados?date=${selected}`} target="_blank" variant="secondary">PDF resultados</LinkButton>
-              <LinkButton href="/tabla" variant="secondary">Ver tabla</LinkButton>
+              {ctx.leagues.filter((l) => l.active).map((l) => (
+                <LinkButton key={l.id} href={`/api/pdf/resultados?date=${selected}&league=${l.id}`} target="_blank" variant="secondary">
+                  PDF {l.name}
+                </LinkButton>
+              ))}
             </>
           ) : undefined
         }

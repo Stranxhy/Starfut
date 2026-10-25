@@ -9,7 +9,7 @@ import { audit } from "../audit";
 import { getCurrentUser } from "../auth";
 import { parseForm, zs } from "../validation";
 
-const ROLES = ["ADMIN", "AUXILIAR", "ARBITRO", "CONSULTA"] as const;
+const ROLES = ["ADMIN", "AUXILIAR", "CONSULTA"] as const;
 
 export async function createUserAction(fd: FormData): Promise<ActionResult> {
   return runAction(async (user) => {

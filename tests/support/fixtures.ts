@@ -5,8 +5,8 @@ import type { PrismaClient } from "@prisma/client";
 
 let counter = 0;
 
-/** Crea una temporada aislada con dos ligas, equipos, jugadores y árbitros. */
-export async function createFixture(opts: { teamsA?: number; teamsB?: number; referees?: number } = {}) {
+/** Crea una temporada aislada con dos ligas, equipos y jugadores. */
+export async function createFixture(opts: { teamsA?: number; teamsB?: number } = {}) {
   const db = prisma as unknown as PrismaClient;
   const { tournament, venue } = await ensureBase(db);
   const tag = `${Date.now()}-${counter++}`;
@@ -38,16 +38,11 @@ export async function createFixture(opts: { teamsA?: number; teamsB?: number; re
   };
   const teamsA = await mkTeams(leagues[0].id, "Equipo A", opts.teamsA ?? 6);
   const teamsB = await mkTeams(leagues[1].id, "Equipo B", opts.teamsB ?? 4);
-  const referees = [];
-  for (let i = 1; i <= (opts.referees ?? 4); i++) {
-    const name = `Arbitro ${tag} ${i}`;
-    referees.push(await prisma.referee.create({ data: { name, nameKey: normalizeName(name) } }));
-  }
   const timeSlots = await prisma.timeSlot.findMany({ where: { seasonId: season.id }, orderBy: { startTime: "asc" } });
   const fields = await prisma.field.findMany({ where: { venueId: venue.id }, orderBy: { sortOrder: "asc" } });
   let user = await prisma.user.findFirst({ where: { email: "pruebas@starfutbol.local" } });
   user ??= await prisma.user.create({ data: { email: "pruebas@starfutbol.local", name: "Pruebas", passwordHash: "x" } });
-  return { season, leagues, teamsA, teamsB, referees, timeSlots, fields, userId: user.id };
+  return { season, leagues, teamsA, teamsB, timeSlots, fields, userId: user.id };
 }
 
 export type Fixture = Awaited<ReturnType<typeof createFixture>>;

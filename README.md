@@ -1,7 +1,7 @@
 # Starfutbol · Panel administrativo
 
 Aplicación web para administrar los torneos dominicales de futbol 7 de Starfutbol:
-ligas, equipos, jugadores, árbitros, programación automática de partidos, resultados,
+ligas, equipos, jugadores, programación automática de partidos, resultados,
 tabla general, goleo, sanciones, eliminatorias, documentos PDF e historial de cambios.
 
 - **Frontend y backend:** Next.js 15 (App Router) + React 19 + TypeScript + Tailwind CSS 4

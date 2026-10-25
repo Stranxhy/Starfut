@@ -1,6 +1,6 @@
 // Prueba de extremo a extremo con navegador real (Chrome/Edge instalado).
 // Recorre el flujo completo de un administrador en una temporada NUEVA:
-// crear temporada → importar equipos → árbitros → generar y confirmar calendario →
+// crear temporada → importar equipos → generar y confirmar calendario →
 // capturar resultados → tabla → cancelar y sustituir → PDF → historial → salir.
 //
 //   node --env-file=.env scripts/e2e.mjs http://localhost:3200 [carpetaCapturas]
@@ -45,7 +45,7 @@ await step("Rechaza credenciales incorrectas", async () => {
 await step("Inicio de sesión", async () => {
   await page.fill("#password", process.env.ADMIN_PASSWORD);
   await Promise.all([page.waitForURL((u) => !u.pathname.startsWith("/login")), page.click("button[type=submit]")]);
-  await page.getByRole("heading", { name: "Dashboard" }).waitFor();
+  await page.getByRole("heading", { name: "Inicio" }).waitFor();
 });
 
 await step("Crear temporada vigente", async () => {
@@ -87,18 +87,6 @@ await step("Detecta equipo duplicado", async () => {
   await dlg.getByRole("button", { name: "Registrar equipo" }).click();
   await dlg.getByText(/Ya existe un equipo/).first().waitFor();
   await dlg.getByRole("button", { name: "Cancelar" }).click();
-});
-
-await step("Registrar árbitros", async () => {
-  await page.goto(`${base}/arbitros`);
-  for (let i = 1; i <= 3; i++) {
-    await page.getByRole("button", { name: "Nuevo árbitro" }).click();
-    const dlg = page.locator("dialog[open]");
-    await dlg.locator("input[name=name]").fill(`Árbitro E2E ${tag} ${i}`);
-    await dlg.getByRole("button", { name: "Registrar" }).click();
-    await toast(/registrado/);
-    await page.locator("dialog[open]").waitFor({ state: "detached" }).catch(() => {});
-  }
 });
 
 await step("Generar vista previa del calendario", async () => {
@@ -199,7 +187,7 @@ await step("Cerrar sesión protege el panel", async () => {
   await page.waitForURL(/\/login/);
   await page.goto(`${base}/equipos`);
   await page.waitForURL(/\/login/);
-  const api = await page.request.get(`${base}/api/pdf/arbitros`);
+  const api = await page.request.get(`${base}/api/pdf/equipos`);
   if (api.status() !== 401) throw new Error(`API sin sesión devolvió ${api.status()}`);
 });
 

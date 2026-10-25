@@ -3,7 +3,6 @@ import { prisma, type Tx } from "@/lib/prisma";
 import { fromISODate, toISODate } from "@/lib/dates";
 import { applyManualOrder, type StandingRow } from "@/domain/standings";
 import { parseSource, resolveSource, validateBracket, type StageOutcome } from "@/domain/bracket";
-import { isRefereeAvailable } from "@/domain/availability";
 import { ActionError } from "../errors";
 import { audit } from "../audit";
 import { getPlayoffFormat } from "./rules";
@@ -316,15 +315,11 @@ export async function generateStageMatches(stageId: string, date: string, userId
       },
     });
     const d = fromISODate(date);
-    const [busy, blocks, referees, availability] = await Promise.all([
+    const [busy, blocks] = await Promise.all([
       tx.match.findMany({ where: { seasonId: stage.seasonId, date: d, status: { not: "CANCELADO" } } }),
       tx.fieldBlock.findMany({ where: { date: d } }),
-      tx.referee.findMany({ where: { active: true }, include: { _count: { select: { matches: true } } } }),
-      tx.refereeAvailability.findMany({ where: { date: d } }),
     ]);
-    const avail = availability.map((a) => ({ refereeId: a.refereeId, date, timeSlotId: a.timeSlotId, available: a.available }));
     const teamBusy = new Set(busy.flatMap((m) => [`${m.timeSlotId}|${m.homeTeamId}`, `${m.timeSlotId}|${m.awayTeamId}`]));
-    const load = new Map(referees.map((r) => [r.id, r._count.matches]));
 
     const round = await tx.round.upsert({
       where: { seasonId_phase_number: { seasonId: stage.seasonId, phase: "ELIMINATORIA", number: stage.order } },
@@ -333,7 +328,7 @@ export async function generateStageMatches(stageId: string, date: string, userId
     });
 
     const warnings: string[] = [];
-    // Reparte los cruces en horarios distintos cuando es posible (facilita árbitros y público).
+    // Reparte los cruces en horarios distintos cuando es posible.
     const slotQueue: { tsId: string; fieldId: string }[] = [];
     for (let fi = 0; fi < season.venue.fields.length; fi++) {
       for (const ts of season.timeSlots) {
@@ -343,22 +338,10 @@ export async function generateStageMatches(stageId: string, date: string, userId
         slotQueue.push({ tsId: ts.id, fieldId: f.id });
       }
     }
-    const usedRef = new Set<string>();
     for (const tie of ties) {
       const idx = slotQueue.findIndex((s) => !teamBusy.has(`${s.tsId}|${tie.homeTeamId}`) && !teamBusy.has(`${s.tsId}|${tie.awayTeamId}`));
       const slot = idx >= 0 ? slotQueue.splice(idx, 1)[0] : null;
-      let refereeId: string | null = null;
-      if (slot) {
-        const ref = referees
-          .filter((r) => !usedRef.has(`${slot.tsId}|${r.id}`) && !busy.some((m) => m.timeSlotId === slot.tsId && m.refereeId === r.id))
-          .filter((r) => isRefereeAvailable(avail, r.id, date, slot.tsId))
-          .sort((a, b) => (load.get(a.id) ?? 0) - (load.get(b.id) ?? 0))[0];
-        if (ref) {
-          refereeId = ref.id;
-          usedRef.add(`${slot.tsId}|${ref.id}`);
-          load.set(ref.id, (load.get(ref.id) ?? 0) + 1);
-        } else warnings.push(`${tie.homeTeam!.name} vs ${tie.awayTeam!.name}: sin árbitro disponible.`);
-      } else warnings.push(`${tie.homeTeam!.name} vs ${tie.awayTeam!.name}: sin espacio disponible; queda pendiente de programar.`);
+      if (!slot) warnings.push(`${tie.homeTeam!.name} vs ${tie.awayTeam!.name}: sin espacio disponible; queda pendiente de programar.`);
       const match = await tx.match.create({
         data: {
           seasonId: stage.seasonId,
@@ -371,7 +354,6 @@ export async function generateStageMatches(stageId: string, date: string, userId
           date: d,
           timeSlotId: slot?.tsId ?? null,
           fieldId: slot?.fieldId ?? null,
-          refereeId,
           homeTeamId: tie.homeTeamId!,
           awayTeamId: tie.awayTeamId!,
         },

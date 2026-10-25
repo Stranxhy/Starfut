@@ -15,7 +15,6 @@ const ENTITY_LINK: Record<string, string> = {
   Partido: "/partidos/",
   Equipo: "/equipos/",
   Jugador: "/jugadores/",
-  "Árbitro": "/arbitros/",
   "Sanción": "/sanciones/",
   Liga: "/ligas/",
 };

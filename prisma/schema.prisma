@@ -16,7 +16,6 @@ datasource db {
 enum UserRole {
   ADMIN
   AUXILIAR
-  ARBITRO
   CONSULTA
 }
 
@@ -94,8 +93,6 @@ model Season {
   /// 0 = domingo … 6 = sábado
   weekday           Int          @default(0)
   regularRounds     Int          @default(14)
-  /// Si es verdadero, un partido no se considera completamente programado sin árbitro.
-  requireReferee    Boolean      @default(true)
   /// Enfrentamientos entre ligas diferentes (desactivado por defecto).
   allowInterLeague  Boolean      @default(false)
   /// Fechas (YYYY-MM-DD) en que no hay jornada (días festivos, etc.).
@@ -132,7 +129,6 @@ model TimeSlot {
   matches          Match[]
   fieldBlocks      FieldBlock[]
   teamRestrictions TeamRestriction[]
-  availabilities   RefereeAvailability[]
 
   @@unique([seasonId, startTime])
 }
@@ -290,39 +286,6 @@ model PlayerTeamHistory {
   reason   String?
 }
 
-// ─────────────────────────────── Árbitros ───────────────────────────────
-
-model Referee {
-  id             String                @id @default(cuid())
-  name           String
-  nameKey        String                @unique
-  phone          String?
-  email          String?
-  notes          String?
-  active         Boolean               @default(true)
-  isDemo         Boolean               @default(false)
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  availabilities RefereeAvailability[]
-  matches        Match[]
-}
-
-/// Disponibilidad registrada. Sin registros, el árbitro activo se considera disponible.
-/// timeSlotId nulo = aplica a todo el día.
-model RefereeAvailability {
-  id         String    @id @default(cuid())
-  refereeId  String
-  referee    Referee   @relation(fields: [refereeId], references: [id], onDelete: Cascade)
-  date       DateTime  @db.Date
-  timeSlotId String?
-  timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id], onDelete: Cascade)
-  available  Boolean   @default(false)
-  note       String?
-  createdAt  DateTime  @default(now())
-
-  @@index([date])
-}
-
 // ─────────────────────────── Jornadas y partidos ───────────────────────────
 
 enum RoundPhase {
@@ -382,8 +345,6 @@ model Match {
   timeSlot           TimeSlot?   @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
   fieldId            String?
   field              Field?      @relation(fields: [fieldId], references: [id], onDelete: Restrict)
-  refereeId          String?
-  referee            Referee?    @relation(fields: [refereeId], references: [id], onDelete: Restrict)
   homeTeamId         String
   homeTeam           Team        @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Restrict)
   awayTeamId         String
@@ -411,7 +372,6 @@ model Match {
   @@index([leagueId])
   @@index([homeTeamId])
   @@index([awayTeamId])
-  @@index([refereeId, date])
 }
 
 enum ResultType {

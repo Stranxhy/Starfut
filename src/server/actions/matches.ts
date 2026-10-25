@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { MatchType } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
 import { ActionError, runAction, type ActionResult } from "../action";
 import { getSeasonId } from "../season";
 import { isConfirm, parseForm, zs } from "../validation";
@@ -17,7 +16,6 @@ const matchSchema = z.object({
   date: zs.optDate,
   timeSlotId: zs.optId,
   fieldId: zs.optId,
-  refereeId: zs.optId,
   countsForStandings: zs.bool,
   notes: zs.optText(500),
   replacesMatchId: zs.optId,
@@ -41,7 +39,6 @@ export async function createMatchAction(fd: FormData): Promise<ActionResult<{ id
         date: d.date ?? null,
         timeSlotId: d.timeSlotId ?? null,
         fieldId: d.fieldId ?? null,
-        refereeId: d.refereeId ?? null,
         countsForStandings: d.countsForStandings,
         notes: d.notes,
         replacesMatchId: d.replacesMatchId ?? null,
@@ -67,7 +64,6 @@ export async function updateMatchAction(fd: FormData): Promise<ActionResult> {
         date: d.date ?? null,
         timeSlotId: d.timeSlotId ?? null,
         fieldId: d.fieldId ?? null,
-        refereeId: d.refereeId ?? null,
         countsForStandings: fd.has("countsForStandingsField") ? d.countsForStandings : undefined,
         notes: fd.has("notes") ? (d.notes ?? null) : undefined,
         reason: d.reason,
@@ -77,17 +73,6 @@ export async function updateMatchAction(fd: FormData): Promise<ActionResult> {
     revalidatePath(`/partidos/${id}`);
     revalidatePath("/partidos");
     return { ok: true, message: reschedule ? "Partido reprogramado." : "Partido actualizado.", warnings: warnings.length ? warnings : undefined };
-  });
-}
-
-export async function assignRefereeAction(fd: FormData): Promise<ActionResult> {
-  return runAction(async (user) => {
-    const id = String(fd.get("id"));
-    const refereeId = String(fd.get("refereeId") ?? "") || null;
-    const reason = String(fd.get("reason") ?? "") || null;
-    await updateMatch(id, { refereeId, reason }, { confirm: isConfirm(fd), userId: user.id });
-    revalidatePath("/partidos");
-    return { ok: true, message: "Árbitro asignado." };
   });
 }
 
@@ -109,30 +94,11 @@ export async function freeSlotsAction(date: string) {
   return freeSlots(seasonId, date);
 }
 
-/** Árbitros activos libres en una fecha y horario. */
-export async function freeRefereesAction(date: string, timeSlotId: string, excludeMatchId?: string) {
-  const user = await getCurrentUser();
-  const seasonId = await getSeasonId();
-  if (!user || !seasonId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
-  const d = new Date(`${date}T00:00:00Z`);
-  const [refs, busy, unavailable] = await Promise.all([
-    prisma.referee.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
-    prisma.match.findMany({
-      where: { date: d, timeSlotId, status: { not: "CANCELADO" }, refereeId: { not: null }, ...(excludeMatchId ? { id: { not: excludeMatchId } } : {}) },
-      select: { refereeId: true },
-    }),
-    prisma.refereeAvailability.findMany({ where: { date: d, available: false, OR: [{ timeSlotId: null }, { timeSlotId }] } }),
-  ]);
-  const blocked = new Set([...busy.map((b) => b.refereeId!), ...unavailable.map((u) => u.refereeId)]);
-  return refs.filter((r) => !blocked.has(r.id));
-}
-
 const fillItem = z.object({
   home: z.string().min(1),
   away: z.string().min(1),
   timeSlotId: z.string().nullable(),
   fieldId: z.string().nullable(),
-  refereeId: z.string().nullable(),
   crossLeague: z.boolean(),
 });
 
@@ -164,7 +130,6 @@ export async function fillDayAction(fd: FormData): Promise<ActionResult> {
             date,
             timeSlotId: it.timeSlotId,
             fieldId: it.fieldId,
-            refereeId: it.refereeId,
             notes: it.crossLeague ? "Partido combinado entre ligas para completar la jornada" : "Partido para completar la jornada",
           },
           { confirm: true, userId: user.id, reason: "Completar jornada: equipos sin partido" },

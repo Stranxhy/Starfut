@@ -9,7 +9,10 @@ import type { DayDocData } from "../data";
 import { plural } from "../format";
 
 export function ResultadosDoc({ data }: { data: DayDocData }) {
-  const { meta } = data;
+  const { meta, teamLeague } = data;
+  // En el PDF de una liga, un equipo de la otra liga (partido combinado) muestra su liga.
+  const withLeague = (id: string, name: string) =>
+    data.filteredLeague && teamLeague[id] && teamLeague[id] !== data.leagueName ? `${name} (${teamLeague[id]})` : name;
   const played = data.groups.flatMap((g) => g.lines).filter((m) => m.status === "JUGADO").length;
   return (
     <DocShell meta={meta} title={`Resultados ${data.date}`}>
@@ -21,7 +24,7 @@ export function ResultadosDoc({ data }: { data: DayDocData }) {
       {data.groups.map((g, i) => (
         <View key={i}>
           {g.title ? <SectionTitle right={plural(g.lines.length, "partido", "partidos")}>{g.title.toUpperCase()}</SectionTitle> : null}
-          <ResultsTable lines={g.lines} />
+          <ResultsTable lines={g.lines} teamLabel={withLeague} />
         </View>
       ))}
       <NoteBox>

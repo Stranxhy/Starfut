@@ -12,7 +12,6 @@ export const MATCH_INCLUDE = {
   league: { select: { id: true, name: true } },
   timeSlot: { select: { id: true, startTime: true } },
   field: { select: { id: true, name: true } },
-  referee: { select: { id: true, name: true } },
   round: { select: { id: true, number: true, phase: true, locked: true } },
   result: true,
 } satisfies Prisma.MatchInclude;
@@ -47,18 +46,16 @@ export async function buildConflictContext(
     include: { timeSlots: true, venue: { include: { fields: true } } },
   });
   const d = date ? fromISODate(date) : null;
-  const [sameDate, blocks, restrictions, availability, teams, referees, meetings] = await Promise.all([
+  const [sameDate, blocks, restrictions, teams, meetings] = await Promise.all([
     d
       ? db.match.findMany({
           where: { seasonId, date: d, status: { not: "CANCELADO" }, ...(excludeMatchId ? { id: { not: excludeMatchId } } : {}) },
-          select: { id: true, date: true, timeSlotId: true, fieldId: true, refereeId: true, homeTeamId: true, awayTeamId: true },
+          select: { id: true, date: true, timeSlotId: true, fieldId: true, homeTeamId: true, awayTeamId: true },
         })
       : Promise.resolve([]),
     d ? db.fieldBlock.findMany({ where: { date: d } }) : Promise.resolve([]),
     db.teamRestriction.findMany({ where: { teamId: { in: [homeTeamId, awayTeamId] } } }),
-    d ? db.refereeAvailability.findMany({ where: { date: d } }) : Promise.resolve([]),
     db.team.findMany({ where: { seasonId }, select: { id: true, name: true, leagueId: true, active: true } }),
-    db.referee.findMany({ select: { id: true, name: true, active: true } }),
     db.match.count({
       where: {
         seasonId,
@@ -77,18 +74,10 @@ export async function buildConflictContext(
     sameDateMatches: sameDate.map((m) => ({ ...m, date: toISODate(m.date) })),
     fieldBlocks: blocks.map((b) => ({ fieldId: b.fieldId, date: toISODate(b.date)!, timeSlotId: b.timeSlotId })),
     teamRestrictions: restrictions.map((r) => ({ teamId: r.teamId, date: toISODate(r.date), timeSlotId: r.timeSlotId, reason: r.reason })),
-    refereeAvailability: availability.map((a) => ({
-      refereeId: a.refereeId,
-      date: toISODate(a.date)!,
-      timeSlotId: a.timeSlotId,
-      available: a.available,
-    })),
     teams: new Map(teams.map((t) => [t.id, { name: t.name, leagueId: t.leagueId, active: t.active }])),
-    referees: new Map(referees.map((r) => [r.id, { name: r.name, active: r.active }])),
     fields: new Map(season.venue.fields.map((f) => [f.id, { name: f.name, active: f.active }])),
     timeSlots: new Map(season.timeSlots.map((t) => [t.id, { startTime: t.startTime, active: t.active }])),
     allowInterLeague: season.allowInterLeague,
-    requireReferee: season.requireReferee,
     previousMeetings: meetings,
   };
 }
@@ -100,7 +89,6 @@ export interface MatchInput {
   date: string | null;
   timeSlotId: string | null;
   fieldId: string | null;
-  refereeId: string | null;
   countsForStandings?: boolean;
   notes?: string | null;
   replacesMatchId?: string | null;
@@ -177,7 +165,6 @@ export async function createMatch(seasonId: string, input: MatchInput, opts: { c
         date: input.date ? fromISODate(input.date) : null,
         timeSlotId: input.timeSlotId,
         fieldId: input.fieldId,
-        refereeId: input.refereeId,
         homeTeamId: input.homeTeamId,
         awayTeamId: input.awayTeamId,
         notes: input.notes || null,
@@ -216,7 +203,6 @@ export async function updateMatch(
       date: input.date !== undefined ? input.date : toISODate(current.date),
       timeSlotId: input.timeSlotId !== undefined ? input.timeSlotId : current.timeSlotId,
       fieldId: input.fieldId !== undefined ? input.fieldId : current.fieldId,
-      refereeId: input.refereeId !== undefined ? input.refereeId : current.refereeId,
     };
     const teamsChanged = next.homeTeamId !== current.homeTeamId || next.awayTeamId !== current.awayTeamId;
     const dateChanged = next.date !== toISODate(current.date);
@@ -272,7 +258,6 @@ export async function updateMatch(
         date: next.date ? fromISODate(next.date) : null,
         timeSlotId: next.timeSlotId,
         fieldId: next.fieldId,
-        refereeId: next.refereeId,
         status,
         notes: input.notes !== undefined ? input.notes || null : undefined,
         roundId: round !== undefined ? (round?.id ?? null) : undefined,
@@ -306,7 +291,6 @@ function snapshot(m: MatchWithRelations) {
     fecha: toISODate(m.date),
     horario: m.timeSlot?.startTime ?? null,
     cancha: m.field?.name ?? null,
-    arbitro: m.referee?.name ?? null,
     local: m.homeTeam.name,
     visitante: m.awayTeam.name,
   };
@@ -430,50 +414,32 @@ export async function teamsWithoutMatch(seasonId: string, date: string) {
 
 export async function proposeDayFill(seasonId: string, date: string) {
   const { proposePairings } = await import("@/domain/pairing");
-  const { isRefereeAvailable } = await import("@/domain/availability");
   const { pairKey } = await import("@/domain/roundRobin");
   const teams = await teamsWithoutMatch(seasonId, date);
   const ids = teams.map((t) => t.id);
   const d = fromISODate(date);
-  const [previous, slots, dayMatches, referees, availability] = await Promise.all([
+  const [previous, slots, dayMatches] = await Promise.all([
     prisma.match.findMany({
       where: { seasonId, status: { not: "CANCELADO" }, homeTeamId: { in: ids }, awayTeamId: { in: ids } },
       select: { homeTeamId: true, awayTeamId: true },
     }),
     freeSlots(seasonId, date),
-    prisma.match.findMany({ where: { seasonId, date: d, status: { not: "CANCELADO" } }, select: { timeSlotId: true, refereeId: true } }),
-    prisma.referee.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
-    prisma.refereeAvailability.findMany({ where: { date: d } }),
+    prisma.match.findMany({ where: { seasonId, date: d, status: { not: "CANCELADO" } }, select: { timeSlotId: true } }),
   ]);
   const met = new Map<string, number>();
   for (const m of previous) met.set(pairKey(m.homeTeamId, m.awayTeamId), (met.get(pairKey(m.homeTeamId, m.awayTeamId)) ?? 0) + 1);
   const { pairs, unpaired } = proposePairings(teams, (a, b) => met.get(pairKey(a, b)) ?? 0);
 
-  // Espacios: primero los horarios con menos partidos (reparte la carga de árbitros), luego el más temprano.
+  // Espacios: primero los horarios con menos partidos, luego el más temprano.
   const perSlot = new Map<string, number>();
   for (const m of dayMatches) if (m.timeSlotId) perSlot.set(m.timeSlotId, (perSlot.get(m.timeSlotId) ?? 0) + 1);
   const queue = [...slots].sort(
     (a, b) => (perSlot.get(a.timeSlotId) ?? 0) - (perSlot.get(b.timeSlotId) ?? 0) || a.startTime.localeCompare(b.startTime),
   );
-  const busyRef = new Set(dayMatches.filter((m) => m.refereeId && m.timeSlotId).map((m) => `${m.timeSlotId}|${m.refereeId}`));
-  const load = new Map<string, number>();
-  for (const m of dayMatches) if (m.refereeId) load.set(m.refereeId, (load.get(m.refereeId) ?? 0) + 1);
-  const avail = availability.map((a) => ({ refereeId: a.refereeId, date, timeSlotId: a.timeSlotId, available: a.available }));
   const byId = new Map(teams.map((t) => [t.id, t]));
 
   const proposal = pairs.map((p) => {
     const slot = queue.shift() ?? null;
-    let referee: { id: string; name: string } | null = null;
-    if (slot) {
-      referee =
-        referees
-          .filter((r) => !busyRef.has(`${slot.timeSlotId}|${r.id}`) && isRefereeAvailable(avail, r.id, date, slot.timeSlotId))
-          .sort((a, b) => (load.get(a.id) ?? 0) - (load.get(b.id) ?? 0))[0] ?? null;
-      if (referee) {
-        busyRef.add(`${slot.timeSlotId}|${referee.id}`);
-        load.set(referee.id, (load.get(referee.id) ?? 0) + 1);
-      }
-    }
     const home = byId.get(p.home)!;
     const away = byId.get(p.away)!;
     return {
@@ -486,8 +452,6 @@ export async function proposeDayFill(seasonId: string, date: string) {
       startTime: slot?.startTime ?? null,
       fieldId: slot?.fieldId ?? null,
       fieldName: slot?.fieldName ?? null,
-      refereeId: referee?.id ?? null,
-      refereeName: referee?.name ?? null,
     };
   });
   return { teams, pairs: proposal, unpaired };

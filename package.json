@@ -21,7 +21,8 @@
     "db:restore": "node scripts/restore.mjs",
     "pdf:samples": "tsx --conditions=react-server scripts/pdf-samples.tsx",
     "test:e2e": "node --env-file=.env scripts/e2e.mjs",
-    "smoke": "node --env-file=.env scripts/smoke.mjs"
+    "smoke": "node --env-file=.env scripts/smoke.mjs",
+    "nav-check": "node --env-file=.env scripts/nav-check.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

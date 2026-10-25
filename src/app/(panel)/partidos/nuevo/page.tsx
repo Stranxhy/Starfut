@@ -15,9 +15,8 @@ export default async function NuevoPartidoPage({ searchParams }: { searchParams:
   const sp = await searchParams;
   const replacesId = str(sp.sustituye);
   const replaced = replacesId ? await prisma.match.findUnique({ where: { id: replacesId }, include: MATCH_INCLUDE }) : null;
-  const [teams, referees, candidates] = await Promise.all([
+  const [teams, candidates] = await Promise.all([
     prisma.team.findMany({ where: { seasonId: ctx.id }, orderBy: { name: "asc" }, include: { league: { select: { name: true } } } }),
-    prisma.referee.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     replaced ? substituteCandidates(replaced.id) : Promise.resolve(undefined),
   ]);
   return (
@@ -45,7 +44,6 @@ export default async function NuevoPartidoPage({ searchParams }: { searchParams:
               teams={teams.map((t) => ({ id: t.id, name: t.name, leagueId: t.leagueId, leagueName: t.league.name, active: t.active }))}
               slots={ctx.timeSlots.filter((t) => t.active)}
               fields={ctx.venue.fields.filter((f) => f.active)}
-              referees={referees}
               replacesMatchId={replaced?.id}
               candidates={candidates}
               allowedTypes={replaced ? ["SUSTITUCION", "AMISTOSO", "INTERLIGA"] : undefined}
@@ -53,7 +51,6 @@ export default async function NuevoPartidoPage({ searchParams }: { searchParams:
                 date: replaced ? toISODate(replaced.date) : (str(sp.fecha) ?? null),
                 timeSlotId: replaced?.timeSlotId,
                 fieldId: replaced?.fieldId,
-                refereeId: replaced?.refereeId,
                 homeTeamId: replaced ? undefined : undefined,
               }}
             />

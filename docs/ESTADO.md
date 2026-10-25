@@ -13,7 +13,6 @@
 | Ligas (crear, editar, activar/desactivar, ficha con jornadas, reglas y estadísticas) | Implementado, verificado en pantalla |
 | Equipos (alta, edición, escudo, baja lógica con impacto en calendario, duplicados, CSV, restricciones, historial) | Probado |
 | Jugadores (alta, edición, cambio de equipo con historial, baja, CSV, goles y sanciones) | Implementado, verificado en pantalla |
-| Árbitros (alta, edición, baja, disponibilidad por fecha/horario, historial y asignaciones) | Probado |
 | Calendario automático (round-robin + asignación óptima, vista previa, regenerar, confirmar, proteger) | Probado |
 | Partidos (crear, editar, reprogramar, cancelar, sustituir, entre ligas, conflictos, historial) | Probado |
 | Resultados (captura rápida, desempate, decisión administrativa, goleadores, correcciones, reversión) | Probado |
@@ -24,6 +23,12 @@
 | Historial de auditoría con filtros | Probado |
 | Usuarios, cambio de contraseña, respaldo JSON, respaldo/restauración `pg_dump` | Probado |
 | Diseño responsivo (escritorio y teléfono) | Verificado con capturas |
+
+## Módulo retirado
+
+- **Árbitros:** eliminado a petición de la liga el 24/10/2026 (registro, disponibilidad, asignación a
+  partidos, columna en el rol y en el calendario, reporte PDF y rol de usuario "árbitro"). Antes de
+  eliminarlo se respaldó la base en `backups/starfutbol_2026-10-24_19-31.dump`.
 
 ## Pendiente o con limitaciones
 
@@ -37,7 +42,7 @@
    máxima nitidez conviene sustituir `public/brand/logo-blanco.png` por una versión vectorial oficial.
 5. **Rendimiento de PDF largos:** el calendario completo de todas las ligas tarda ~13–20 s y el historial
    completo ~11 s en el equipo de desarrollo; los demás documentos 0.5–2 s.
-6. **Roles adicionales:** existen en el modelo (auxiliar, árbitro, consulta) y el auxiliar puede capturar
+6. **Roles adicionales:** existen en el modelo (auxiliar y consulta) y el auxiliar puede capturar
    resultados, pero no hay pantallas específicas por rol ni consulta pública.
 7. **Despliegue:** la aplicación no se ha publicado en Internet; ver [DESPLIEGUE.md](DESPLIEGUE.md).
 8. **Limitador de intentos de acceso** en memoria (se reinicia con la aplicación; suficiente para una sola

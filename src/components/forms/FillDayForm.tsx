@@ -16,8 +16,6 @@ export interface FillPair {
   startTime: string | null;
   fieldId: string | null;
   fieldName: string | null;
-  refereeId: string | null;
-  refereeName: string | null;
 }
 
 export function FillDayForm({ action, date, pairs, friendly }: { action: ServerAction; date: string; pairs: FillPair[]; friendly?: boolean }) {
@@ -30,7 +28,7 @@ export function FillDayForm({ action, date, pairs, friendly }: { action: ServerA
         type="hidden"
         name="items"
         value={JSON.stringify(
-          chosen.map((p) => ({ home: p.home, away: p.away, timeSlotId: p.timeSlotId, fieldId: p.fieldId, refereeId: p.refereeId, crossLeague: p.crossLeague })),
+          chosen.map((p) => ({ home: p.home, away: p.away, timeSlotId: p.timeSlotId, fieldId: p.fieldId, crossLeague: p.crossLeague })),
         )}
       />
       <ul className="divide-y divide-zinc-100 rounded-xl ring-1 ring-zinc-200">
@@ -54,7 +52,6 @@ export function FillDayForm({ action, date, pairs, friendly }: { action: ServerA
               <span className="text-sm text-zinc-600 tabular-nums">
                 {p.startTime ? `${p.startTime} · ${p.fieldName}` : <span className="text-red-700">Sin espacio libre</span>}
               </span>
-              <span className={`text-sm ${p.refereeName ? "text-zinc-600" : "text-red-700"}`}>{p.refereeName ?? "Sin árbitro disponible"}</span>
             </label>
           </li>
         ))}

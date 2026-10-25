@@ -33,6 +33,8 @@ npm run test:e2e -- http://localhost:3200 test-output/e2e
 
 - `npm run smoke -- http://localhost:3000` — solicita todas las pantallas con una sesión de administrador
   (también acepta rutas, incluidas `/api/pdf/...`, y la variable `SEASON=<id>` para elegir temporada).
+- `npm run nav-check` — hace clic en pestañas, filtros, paginación y menú con un navegador real y mide la
+  respuesta; falla si alguna navegación no responde en 5 s.
 - `npm run pdf:samples` — genera 28 variantes de los 12 documentos PDF con la temporada demo y las
   rasteriza en `test-output/pdf/png/` para revisión visual.
 - `node --env-file=.env scripts/screens.mjs <carpeta> <url> <rutas…>` — capturas de pantalla.
@@ -43,9 +45,9 @@ npm run test:e2e -- http://localhost:3200 test-output/e2e
 |---|---|
 | `tsc --noEmit` | Sin errores |
 | `eslint .` | Sin errores ni advertencias |
-| Pruebas unitarias (4 archivos) | **47 / 47** correctas (incluye formato de penales y completar jornada) |
-| Pruebas de integración con PostgreSQL (4 archivos) | **24 / 24** correctas |
-| E2E con navegador sobre compilación de producción | **15 / 15** pasos correctos |
+| Pruebas unitarias (4 archivos) | **44 / 44** correctas (incluye formato de penales y completar jornada) |
+| Pruebas de integración con PostgreSQL (4 archivos) | **25 / 25** correctas |
+| E2E con navegador sobre compilación de producción | **14 / 14** pasos correctos |
 | Smoke de pantallas (temporada oficial y demo, incluidas fichas de detalle) | 21 + 28 rutas con HTTP 200 |
 | PDF por HTTP (12 documentos, con y sin filtros vacíos) | 200 y `%PDF` válido; parámetro obligatorio faltante → 400 con mensaje |
 | Respaldo y restauración | Respaldo restaurado en una base nueva; conteos idénticos |
@@ -54,9 +56,9 @@ npm run test:e2e -- http://localhost:3200 test-output/e2e
 
 ### Cobertura por área del plan de pruebas
 
-- **Equipos y árbitros:** alta, edición, baja lógica, duplicados (aplicación y restricción única en BD),
-  disponibilidad de árbitros y conflicto por no disponibilidad (unitarias, integración y E2E).
-- **Calendario:** 14 jornadas; sin cancha, equipo ni árbitro duplicados en el mismo horario; número impar
+- **Equipos:** alta, edición, baja lógica y duplicados (aplicación y restricción única en BD)
+  (unitarias, integración y E2E).
+- **Calendario:** 14 jornadas; sin cancha ni equipo duplicados en el mismo horario; número impar
   (descansos, cada equipo descansa una vez por vuelta); detección de repeticiones inevitables; situación
   imposible por falta de espacios; vista previa; confirmación con advertencias; protección de jornadas
   confirmadas; no regeneración de jornadas confirmadas; minimización de repeticiones al regenerar.
@@ -84,5 +86,7 @@ npm run test:e2e -- http://localhost:3200 test-output/e2e
 2. Crear una temporada sin “copiar de” heredaba el número de jornadas de la temporada más reciente; ahora
    usa la configuración inicial (14 jornadas, domingo).
 3. Filtros combinados de la lista de partidos (liga + equipo + alertas) se sobrescribían entre sí.
-4. Expectativa incorrecta de una prueba de árbitros (con 2 árbitros × 6 horarios no caben 13 partidos: el
-   sistema reporta correctamente 1 partido sin árbitro).
+5. Las pestañas por liga (Tabla general, Goleo, Eliminatorias), la paginación y algunos cambios de pestaña en
+   Configuración no respondían: la pantalla de carga `loading.tsx` bloqueaba en Next.js 15.5 la navegación
+   dentro de la misma página. Se eliminó y se sustituyó por una barra de progreso superior. Ahora todas las
+   navegaciones responden en 110–310 ms (verificado con `npm run nav-check`).

@@ -61,21 +61,24 @@ export function ResultsTable({
   showTime = false,
   caption,
   captionRight,
+  teamLabel = (_m, name) => name,
 }: {
   lines: MatchLine[];
   fontSize?: number;
   showTime?: boolean;
   caption?: string;
   captionRight?: string;
+  /** Permite anotar el nombre (p. ej. la liga del rival en un partido combinado). */
+  teamLabel?: (teamId: string, name: string) => string;
 }) {
   const columns: Column<MatchLine>[] = [
     ...(showTime
       ? [{ key: "time", header: "Hora", width: 34, render: (m: MatchLine) => (m.time ? m.time.replace(/^0/, "") : "—") }]
       : []),
     { key: "hg", header: "Goles", width: 62, render: (m) => <GoalsCell m={m} side="home" /> },
-    { key: "home", header: "Equipo", render: (m) => m.home },
+    { key: "home", header: "Equipo", render: (m) => teamLabel(m.homeId, m.home) },
     { key: "vs", header: "VS", width: 44, padX: 1, render: (m) => <VsCell m={m} />, cellBg: () => colors.headerBgDeep },
-    { key: "away", header: "Equipo", render: (m) => m.away },
+    { key: "away", header: "Equipo", render: (m) => teamLabel(m.awayId, m.away) },
     { key: "ag", header: "Goles", width: 62, render: (m) => <GoalsCell m={m} side="away" /> },
   ];
   return (

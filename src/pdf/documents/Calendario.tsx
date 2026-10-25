@@ -33,13 +33,6 @@ export function CalendarioDoc({ data }: { data: CalendarDocData }) {
     },
     { key: "away", header: "Visitante", render: (m) => m.away },
     {
-      key: "ref",
-      header: "Árbitro",
-      width: 84,
-      render: (m) => m.referee ?? "Por asignar",
-      textStyle: { textTransform: "none", fontWeight: 700, fontSize: 6.4 },
-    },
-    {
       key: "status",
       header: "Estado",
       width: 66,

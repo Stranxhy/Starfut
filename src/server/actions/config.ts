@@ -33,7 +33,6 @@ export async function updateGeneralAction(fd: FormData): Promise<ActionResult> {
         startDate: zs.date,
         weekday: zs.int(0, 6),
         regularRounds: zs.int(1, 60, "El número de jornadas"),
-        requireReferee: zs.bool,
         allowInterLeague: zs.bool,
         excludedDates: z.string().optional(),
       }),
@@ -62,15 +61,14 @@ export async function updateGeneralAction(fd: FormData): Promise<ActionResult> {
           startDate: fromISODate(d.startDate),
           weekday: d.weekday,
           regularRounds: d.regularRounds,
-          requireReferee: d.requireReferee,
           allowInterLeague: d.allowInterLeague,
           excludedDates: [...new Set(excluded)].sort(),
         },
       });
       await audit(tx, {
         userId: user.id, action: "CONFIGURACION", entity: "Temporada", entityId: sid, summary: "Configuración general",
-        before: { torneo: season.tournament.name, sede: season.venue.name, temporada: season.name, inicio: toISODate(season.startDate), dia: season.weekday, jornadas: season.regularRounds, arbitroObligatorio: season.requireReferee, entreLigas: season.allowInterLeague },
-        after: { torneo: d.tournamentName, sede: d.venueName, temporada: d.seasonName, inicio: d.startDate, dia: d.weekday, jornadas: d.regularRounds, arbitroObligatorio: d.requireReferee, entreLigas: d.allowInterLeague },
+        before: { torneo: season.tournament.name, sede: season.venue.name, temporada: season.name, inicio: toISODate(season.startDate), dia: season.weekday, jornadas: season.regularRounds, entreLigas: season.allowInterLeague },
+        after: { torneo: d.tournamentName, sede: d.venueName, temporada: d.seasonName, inicio: d.startDate, dia: d.weekday, jornadas: d.regularRounds, entreLigas: d.allowInterLeague },
       });
     });
     revalidatePath("/", "layout");
@@ -344,7 +342,6 @@ export async function createSeasonAction(fd: FormData): Promise<ActionResult> {
             // Sin temporada de origen se usa la configuración inicial, no la de otra temporada.
             weekday: source?.weekday ?? 0,
             regularRounds: source?.regularRounds ?? 14,
-            requireReferee: source?.requireReferee ?? true,
             allowInterLeague: source?.allowInterLeague ?? true,
             isCurrent: d.setCurrent,
           },

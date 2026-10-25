@@ -12,7 +12,7 @@ let f: Fixture;
 const dates = buildRoundDates("2026-08-02", 0, 14);
 
 beforeAll(async () => {
-  f = await createFixture({ teamsA: 7, teamsB: 6, referees: 3 });
+  f = await createFixture({ teamsA: 7, teamsB: 6 });
 });
 
 describe("calendario automático (base de datos)", () => {
@@ -35,11 +35,11 @@ describe("calendario automático (base de datos)", () => {
     const rounds = await prisma.round.findMany({ where: { seasonId: f.season.id } });
     expect(rounds).toHaveLength(14);
     expect(rounds.every((r) => r.locked)).toBe(true);
-    // Sin cancha duplicada, árbitro duplicado ni equipo simultáneo
+    // Sin cancha duplicada ni equipo simultáneo
     const seen = new Set<string>();
     for (const m of matches) {
       const d = m.date!.toISOString();
-      for (const k of [`f|${d}|${m.timeSlotId}|${m.fieldId}`, `t|${d}|${m.timeSlotId}|${m.homeTeamId}`, `t|${d}|${m.timeSlotId}|${m.awayTeamId}`, ...(m.refereeId ? [`r|${d}|${m.timeSlotId}|${m.refereeId}`] : [])]) {
+      for (const k of [`f|${d}|${m.timeSlotId}|${m.fieldId}`, `t|${d}|${m.timeSlotId}|${m.homeTeamId}`, `t|${d}|${m.timeSlotId}|${m.awayTeamId}`]) {
         expect(seen.has(k)).toBe(false);
         seen.add(k);
       }
@@ -62,7 +62,7 @@ describe("calendario automático (base de datos)", () => {
     const newDate = "2026-11-15";
     const { match } = await updateMatch(
       m.id,
-      { date: newDate, timeSlotId: f.timeSlots[0].id, fieldId: f.fields[0].id, refereeId: null, reason: "Lluvia" },
+      { date: newDate, timeSlotId: f.timeSlots[0].id, fieldId: f.fields[0].id, reason: "Lluvia" },
       { confirm: true, userId: f.userId },
     );
     expect(match.status).toBe("REPROGRAMADO");
@@ -71,27 +71,19 @@ describe("calendario automático (base de datos)", () => {
     expect(log?.reason).toBe("Lluvia");
   });
 
-  it("detecta conflicto de cancha, equipo simultáneo y árbitro ocupado", async () => {
-    const [x, y] = await prisma.match.findMany({ where: { seasonId: f.season.id, date: new Date(`${dates[12]}T00:00:00Z`), refereeId: { not: null } }, take: 2, orderBy: { timeSlotId: "asc" } });
+  it("detecta conflicto de cancha y equipo simultáneo", async () => {
+    const [x, y] = await prisma.match.findMany({ where: { seasonId: f.season.id, date: new Date(`${dates[12]}T00:00:00Z`) }, take: 2, orderBy: { timeSlotId: "asc" } });
     // Mover y al mismo horario y cancha de x
     await expect(
       updateMatch(y.id, { timeSlotId: x.timeSlotId, fieldId: x.fieldId, reason: "prueba" }, { confirm: true, userId: f.userId }),
-    ).rejects.toThrow(/ocupada|misma hora|árbitro/);
-    // Árbitro de x en el mismo horario de x, otra cancha libre
-    const freeField = f.fields.find((fl) => fl.id !== x.fieldId)!;
-    const other = await prisma.match.findFirst({ where: { date: x.date, timeSlotId: x.timeSlotId, fieldId: freeField.id } });
-    if (!other) {
-      await expect(
-        updateMatch(y.id, { timeSlotId: x.timeSlotId, fieldId: freeField.id, refereeId: x.refereeId, reason: "prueba" }, { confirm: true, userId: f.userId }),
-      ).rejects.toThrow(/árbitro|misma hora/);
-    }
+    ).rejects.toThrow(/ocupada|misma hora/);
   });
 
   it("partido entre ligas exige tipo extraordinario; un amistoso no afecta la tabla", async () => {
     const date = "2026-12-06";
     const [a] = f.teamsA;
     const [b] = f.teamsB;
-    const base = { homeTeamId: a.id, awayTeamId: b.id, date, timeSlotId: f.timeSlots[2].id, fieldId: f.fields[2].id, refereeId: f.referees[0].id };
+    const base = { homeTeamId: a.id, awayTeamId: b.id, date, timeSlotId: f.timeSlots[2].id, fieldId: f.fields[2].id };
     await expect(createMatch(f.season.id, { ...base, type: "OFICIAL" }, { confirm: true, userId: f.userId })).rejects.toThrow(/ligas diferentes/);
     // INTERLIGA con interliga desactivada: advertencia que requiere confirmación
     await prisma.season.update({ where: { id: f.season.id }, data: { allowInterLeague: false } });
@@ -115,7 +107,7 @@ describe("calendario automático (base de datos)", () => {
     const rival = f.teamsA.find((t) => t.id !== m.homeTeamId && t.id !== m.awayTeamId && !busyTeams.has(t.id))!;
     const { match: sub } = await createMatch(
       f.season.id,
-      { type: "SUSTITUCION", homeTeamId: m.homeTeamId, awayTeamId: rival.id, date: dates[11], timeSlotId: m.timeSlotId, fieldId: m.fieldId, refereeId: m.refereeId, replacesMatchId: m.id },
+      { type: "SUSTITUCION", homeTeamId: m.homeTeamId, awayTeamId: rival.id, date: dates[11], timeSlotId: m.timeSlotId, fieldId: m.fieldId, replacesMatchId: m.id },
       { confirm: true, userId: f.userId },
     );
     expect(sub.countsForStandings).toBe(true);

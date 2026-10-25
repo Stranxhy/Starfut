@@ -30,7 +30,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
     prisma.round.findMany({
       where: { seasonId: ctx.id },
       orderBy: [{ phase: "asc" }, { number: "asc" }],
-      include: { matches: { select: { status: true, refereeId: true, timeSlotId: true } } },
+      include: { matches: { select: { status: true } } },
     }),
     prisma.league.findMany({
       where: { seasonId: ctx.id, active: true },
@@ -40,14 +40,8 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
   ]);
 
   // Nombres para la vista previa
-  const [teams, referees] = draft
-    ? await Promise.all([
-        prisma.team.findMany({ where: { seasonId: ctx.id }, select: { id: true, name: true } }),
-        prisma.referee.findMany({ select: { id: true, name: true } }),
-      ])
-    : [[], []];
+  const teams = draft ? await prisma.team.findMany({ where: { seasonId: ctx.id }, select: { id: true, name: true } }) : [];
   const teamName = new Map(teams.map((t) => [t.id, t.name]));
-  const refName = new Map(referees.map((r) => [r.id, r.name]));
   const slotLabel = new Map(ctx.timeSlots.map((t) => [t.id, t.startTime]));
   const fieldName = new Map(ctx.venue.fields.map((f) => [f.id, f.name]));
   const leagueName = new Map(ctx.leagues.map((l) => [l.id, l.name]));
@@ -116,11 +110,10 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
             actions={<DraftActions draftId={draft.id} confirm={confirmDraftAction} discard={discardDraftAction} regenerate={regenerateDraftAction} />}
           />
           <div className="space-y-4 px-4 py-4 sm:px-5">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <StatCard label="Partidos" value={draft.data.summary.totalMatches} />
               <StatCard label="Enfrentamientos repetidos" value={draft.data.summary.repeatedMatches} tone={draft.data.summary.repeatedMatches ? "warn" : "ok"} />
               <StatCard label="Con conflictos" value={draft.data.summary.conflicts} tone={draft.data.summary.conflicts ? "danger" : "ok"} />
-              <StatCard label="Sin árbitro" value={draft.data.summary.matchesWithoutReferee} tone={draft.data.summary.matchesWithoutReferee ? "warn" : "ok"} />
               <StatCard label="Sin espacio" value={draft.data.summary.unscheduledMatches} tone={draft.data.summary.unscheduledMatches ? "danger" : "ok"} />
             </div>
             {draft.data.errors.map((e) => <Alert key={e} tone="danger">{e}</Alert>)}
@@ -156,8 +149,8 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
             </Table>
 
             <details className="rounded-lg ring-1 ring-zinc-200">
-              <summary className="cursor-pointer px-4 py-2 text-sm font-semibold">Distribución de horarios por equipo y carga de árbitros</summary>
-              <div className="grid gap-4 p-4 xl:grid-cols-[1fr_18rem]">
+              <summary className="cursor-pointer px-4 py-2 text-sm font-semibold">Distribución de horarios por equipo</summary>
+              <div className="p-4">
                 <Table>
                   <thead>
                     <tr><TH>Equipo</TH>{activeSlots.map((s) => <TH key={s.id} className="text-center">{s.startTime}</TH>)}</tr>
@@ -178,14 +171,6 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
                       })}
                   </tbody>
                 </Table>
-                <div>
-                  <p className="mb-2 text-xs font-bold tracking-wide text-zinc-500 uppercase">Partidos por árbitro</p>
-                  <ul className="space-y-1 text-sm">
-                    {Object.entries(draft.data.summary.refereeLoad).sort((a, b) => b[1] - a[1]).map(([id, n]) => (
-                      <li key={id} className="flex justify-between"><span>{refName.get(id)}</span><span className="font-bold tabular-nums">{n}</span></li>
-                    ))}
-                  </ul>
-                </div>
               </div>
             </details>
 
@@ -202,7 +187,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
                   </summary>
                   <Table>
                     <thead>
-                      <tr><TH>Horario</TH><TH>Cancha</TH><TH>Liga</TH><TH>Local</TH><TH /><TH>Visitante</TH><TH>Árbitro</TH><TH>Observaciones</TH></tr>
+                      <tr><TH>Horario</TH><TH>Cancha</TH><TH>Liga</TH><TH>Local</TH><TH /><TH>Visitante</TH><TH>Observaciones</TH></tr>
                     </thead>
                     <tbody>
                       {[...r.matches]
@@ -215,7 +200,6 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
                             <TD className="font-semibold">{teamName.get(m.homeTeamId)}</TD>
                             <TD className="text-xs text-zinc-400">vs</TD>
                             <TD className="font-semibold">{teamName.get(m.awayTeamId)}</TD>
-                            <TD>{m.refereeId ? refName.get(m.refereeId) : <span className="text-red-700">Sin asignar</span>}</TD>
                             <TD className="text-xs">
                               {m.repeatIndex > 0 && <span className="block text-amber-800">Repetición n.º {m.repeatIndex}</span>}
                               {m.conflicts.map((c) => <span key={c} className="block text-red-800">{c}</span>)}
@@ -241,7 +225,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
         ) : (
           <Table>
             <thead>
-              <tr><TH>Jornada</TH><TH>Fecha</TH><TH className="text-center">Partidos</TH><TH className="text-center">Disputados</TH><TH className="text-center">Cancelados</TH><TH className="text-center">Sin árbitro</TH><TH>Estado</TH><TH className="text-right">Acciones</TH></tr>
+              <tr><TH>Jornada</TH><TH>Fecha</TH><TH className="text-center">Partidos</TH><TH className="text-center">Disputados</TH><TH className="text-center">Cancelados</TH><TH>Estado</TH><TH className="text-right">Acciones</TH></tr>
             </thead>
             <tbody>
               {rounds.map((r) => {
@@ -258,15 +242,9 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
                     <TD className="text-center tabular-nums">{active.length}</TD>
                     <TD className="text-center tabular-nums">{r.matches.filter((m) => m.status === "JUGADO").length}</TD>
                     <TD className="text-center tabular-nums">{r.matches.filter((m) => m.status === "CANCELADO").length}</TD>
-                    <TD className="text-center tabular-nums">{active.filter((m) => m.timeSlotId && !m.refereeId).length}</TD>
                     <TD>{r.locked ? <Badge className="bg-sky-100 text-sky-900 ring-sky-300">Confirmada · protegida</Badge> : <Badge>Editable</Badge>}</TD>
                     <TD>
                       <div className="flex flex-wrap justify-end gap-2">
-                        {ctx.leagues.map((l) => (
-                          <LinkButton key={l.id} href={`/api/pdf/rol?date=${iso}&league=${l.id}`} target="_blank" size="sm" variant="ghost">
-                            Rol {l.name}
-                          </LinkButton>
-                        ))}
                         {r.phase === "REGULAR" && (
                           <RoundAdminButtons roundId={r.id} number={r.number} date={iso} locked={r.locked} lockAction={setRoundLockAction} dateAction={updateRoundDateAction} />
                         )}

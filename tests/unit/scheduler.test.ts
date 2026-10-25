@@ -6,7 +6,6 @@ import { hungarian } from "@/domain/hungarian";
 const SLOTS = ["08:10", "09:00", "09:50", "10:40", "11:30", "12:20"].map((t, i) => ({ id: `ts${i}`, startTime: t }));
 const FIELDS = [1, 2, 3, 4, 5].map((n) => ({ id: `f${n}`, name: `Cancha ${n}` }));
 const team = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => ({ id: `${prefix}${i + 1}`, name: `${prefix} ${i + 1}` }));
-const refs = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `r${i + 1}`, name: `Árbitro ${i + 1}` }));
 
 function baseInput(over: Partial<SchedulerInput> = {}): SchedulerInput {
   const dates = buildRoundDates("2026-08-02", 0, 14);
@@ -18,8 +17,6 @@ function baseInput(over: Partial<SchedulerInput> = {}): SchedulerInput {
     rounds: dates.map((d, i) => ({ number: i + 1, date: d })),
     timeSlots: SLOTS,
     fields: FIELDS,
-    referees: refs(5),
-    requireReferee: true,
     seed: 42,
     ...over,
   };
@@ -29,7 +26,6 @@ function assertNoClashes(rounds: ReturnType<typeof generateSchedule>["rounds"]) 
   for (const r of rounds) {
     const fieldSlot = new Set<string>();
     const teamSlot = new Set<string>();
-    const refSlot = new Set<string>();
     const teamDay = new Set<string>();
     for (const m of r.matches) {
       if (!m.timeSlotId) continue;
@@ -41,10 +37,6 @@ function assertNoClashes(rounds: ReturnType<typeof generateSchedule>["rounds"]) 
         teamSlot.add(`${m.timeSlotId}|${t}`);
         expect(teamDay.has(t)).toBe(false); // un partido por equipo por jornada
         teamDay.add(t);
-      }
-      if (m.refereeId) {
-        expect(refSlot.has(`${m.timeSlotId}|${m.refereeId}`)).toBe(false);
-        refSlot.add(`${m.timeSlotId}|${m.refereeId}`);
       }
     }
   }
@@ -125,30 +117,6 @@ describe("generateSchedule", () => {
       const max = Math.max(...Object.values(dist));
       expect(max).toBeLessThanOrEqual(5);
     }
-  });
-
-  it("asigna árbitros sin simultaneidad y respeta la disponibilidad", () => {
-    const dates = buildRoundDates("2026-08-02", 0, 14);
-    const out = generateSchedule(
-      baseInput({
-        referees: refs(3),
-        refereeAvailability: [{ refereeId: "r1", date: dates[0], timeSlotId: null, available: false }],
-      }),
-    );
-    const first = out.rounds[0];
-    expect(first.matches.some((m) => m.refereeId === "r1")).toBe(false);
-    assertNoClashes(out.rounds);
-    // Jornada 1: 2 árbitros × 6 horarios = 12 < 13 partidos → exactamente uno sin árbitro, reportado.
-    expect(first.matches.filter((m) => !m.refereeId)).toHaveLength(1);
-    expect(out.summary.matchesWithoutReferee).toBe(1);
-    // Resto de jornadas: 3 árbitros × 6 horarios = 18 ≥ 13 → todos asignados.
-    expect(out.rounds.slice(1).every((r) => r.matches.every((m) => m.refereeId))).toBe(true);
-  });
-
-  it("reporta conflicto cuando no hay árbitros suficientes", () => {
-    const out = generateSchedule(baseInput({ referees: [], leagues: [{ id: "L1", name: "P", teams: team("P", 4) }] }));
-    expect(out.summary.matchesWithoutReferee).toBeGreaterThan(0);
-    expect(out.rounds[0].matches[0].conflicts.join(" ")).toContain("Sin árbitro");
   });
 
   it("detecta situación imposible por falta de espacios", () => {

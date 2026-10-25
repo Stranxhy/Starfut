@@ -38,8 +38,8 @@ npm run db:seed      # torneo, sede, 5 canchas, temporada con 2 ligas, 14 jornad
 Crea una base vacía, ajusta `DATABASE_URL` y ejecuta `npm run db:migrate && npm run db:seed`.
 
 La migración inicial incluye, además de las tablas, restricciones de integridad a nivel de base de datos:
-una cancha no puede tener dos partidos activos en la misma fecha y horario, un árbitro no puede tener
-dos partidos simultáneos, un equipo no puede enfrentarse a sí mismo, marcadores no negativos y una sola
+una cancha no puede tener dos partidos activos en la misma fecha y horario, un equipo no puede
+enfrentarse a sí mismo, marcadores no negativos y una sola
 temporada vigente.
 
 ## 4. Datos de demostración (opcional)

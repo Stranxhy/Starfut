@@ -14,14 +14,14 @@ export async function GET() {
   if (user.role !== "ADMIN") return new Response("Prohibido", { status: 403 });
   const [
     tournaments, venues, fields, seasons, timeSlots, fieldBlocks, leagues, scoringConfigs, tiebreakConfigs, teams,
-    teamRestrictions, players, playerTeamHistory, referees, refereeAvailability, rounds, matches, matchResults,
+    teamRestrictions, players, playerTeamHistory, rounds, matches, matchResults,
     matchScorers, sanctionTypes, sanctionUnits, sanctions, sanctionServings, playoffFormats, standingSnapshots,
     playoffStages, playoffTies, users, auditLogs,
   ] = await Promise.all([
     prisma.tournament.findMany(), prisma.venue.findMany(), prisma.field.findMany(), prisma.season.findMany(),
     prisma.timeSlot.findMany(), prisma.fieldBlock.findMany(), prisma.league.findMany(), prisma.scoringConfig.findMany(),
     prisma.tiebreakConfig.findMany(), prisma.team.findMany({ omit: { logo: true } }), prisma.teamRestriction.findMany(),
-    prisma.player.findMany(), prisma.playerTeamHistory.findMany(), prisma.referee.findMany(), prisma.refereeAvailability.findMany(),
+    prisma.player.findMany(), prisma.playerTeamHistory.findMany(),
     prisma.round.findMany(), prisma.match.findMany(), prisma.matchResult.findMany(), prisma.matchScorer.findMany(),
     prisma.sanctionType.findMany(), prisma.sanctionUnit.findMany(), prisma.sanction.findMany(), prisma.sanctionServing.findMany(),
     prisma.playoffFormat.findMany(), prisma.standingSnapshot.findMany(), prisma.playoffStage.findMany(), prisma.playoffTie.findMany(),
@@ -34,7 +34,7 @@ export async function GET() {
     nota: "Respaldo lógico sin contraseñas ni escudos. Para restauración completa use pg_dump/pg_restore.",
     datos: {
       tournaments, venues, fields, seasons, timeSlots, fieldBlocks, leagues, scoringConfigs, tiebreakConfigs, teams,
-      teamRestrictions, players, playerTeamHistory, referees, refereeAvailability, rounds, matches, matchResults,
+      teamRestrictions, players, playerTeamHistory, rounds, matches, matchResults,
       matchScorers, sanctionTypes, sanctionUnits, sanctions, sanctionServings, playoffFormats, standingSnapshots,
       playoffStages, playoffTies, users, auditLogs,
     },

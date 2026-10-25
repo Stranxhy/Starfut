@@ -70,11 +70,9 @@ export async function createDraft(seasonId: string, params: DraftParams, userId:
   if (params.dates.length !== count) throw new ActionError(`Indica ${count} fechas de juego.`);
   if (new Set(params.dates).size !== params.dates.length) throw new ActionError("Hay fechas repetidas.");
   const dates = params.dates.map((d) => fromISODate(d));
-  const [referees, blocks, restrictions, availability, kept] = await Promise.all([
-    prisma.referee.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  const [blocks, restrictions, kept] = await Promise.all([
     prisma.fieldBlock.findMany({ where: { date: { in: dates } } }),
     prisma.teamRestriction.findMany({ where: { team: { seasonId } } }),
-    prisma.refereeAvailability.findMany({ where: { date: { in: dates } } }),
     prisma.match.findMany({
       where: {
         seasonId,
@@ -94,11 +92,8 @@ export async function createDraft(seasonId: string, params: DraftParams, userId:
     rounds: params.dates.map((d, i) => ({ number: params.fromRound + i, date: d })),
     timeSlots: season.timeSlots.map((t) => ({ id: t.id, startTime: t.startTime })),
     fields: season.venue.fields.map((f) => ({ id: f.id, name: f.name })),
-    referees,
     fieldBlocks: blocks.map((b) => ({ fieldId: b.fieldId, date: toISODate(b.date)!, timeSlotId: b.timeSlotId })),
     teamRestrictions: restrictions.map((r) => ({ teamId: r.teamId, date: toISODate(r.date), timeSlotId: r.timeSlotId, reason: r.reason })),
-    refereeAvailability: availability.map((a) => ({ refereeId: a.refereeId, date: toISODate(a.date)!, timeSlotId: a.timeSlotId, available: a.available })),
-    requireReferee: season.requireReferee,
     seed: params.seed,
     existingPairs,
   });
@@ -136,7 +131,6 @@ export async function confirmDraft(draftId: string, opts: { acknowledgeIssues: b
   const data = draft.data as unknown as ScheduleDraftData;
   if (data.errors.length) throw new ActionError("El borrador tiene errores y no puede confirmarse.");
   const issues: string[] = [];
-  if (data.summary.matchesWithoutReferee) issues.push(`${data.summary.matchesWithoutReferee} partido(s) sin árbitro asignado.`);
   if (data.summary.unscheduledMatches) issues.push(`${data.summary.unscheduledMatches} partido(s) sin horario ni cancha (quedarán pendientes).`);
   if (data.summary.repeatedMatches) issues.push(`${data.summary.repeatedMatches} enfrentamiento(s) repetido(s).`);
   if (issues.length && !opts.acknowledgeIssues) {
@@ -179,7 +173,6 @@ export async function confirmDraft(draftId: string, opts: { acknowledgeIssues: b
               date: fromISODate(r.date),
               timeSlotId: m.timeSlotId,
               fieldId: m.fieldId,
-              refereeId: m.refereeId,
               homeTeamId: m.homeTeamId,
               awayTeamId: m.awayTeamId,
               locked: true,
