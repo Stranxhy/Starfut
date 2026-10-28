@@ -9,7 +9,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (await getCurrentUser()) redirect("/");
   const { next } = await searchParams;
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-[#102d50] px-4 py-10">
+    <main className="bg-sport flex min-h-dvh items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
           <Image src="/brand/logo.png" alt="Starfutbol" width={260} height={113} priority className="h-auto w-56 drop-shadow-lg" />
