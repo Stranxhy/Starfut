@@ -1,122 +1,66 @@
-import Link from "next/link";
-import type { Prisma } from "@prisma/client";
+import { History } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/server/auth";
-import { buttonClass, Card, EmptyState, inputClass, PageHeader, Pagination, withParams } from "@/components/ui/core";
-import { AuditDiff } from "@/components/AuditList";
-import { formatDateTime, fromISODate } from "@/lib/dates";
+import { loadAuditHistory } from "@/server/services/audit-history";
+import { Alert, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, withParams } from "@/components/ui/core";
+import { FilterField, FilterPanel, FilterSelect } from "@/components/ui/filters";
+import { AuditTimeline } from "@/components/audit/AuditTimeline";
+import { AUDIT_USER_FALLBACK, AUDIT_WITHOUT_USER, auditActionLabel, auditEntityLabel, resolveAuditView } from "@/domain/audit-view";
+import { APP_TIMEZONE, formatShort } from "@/lib/dates";
 import { AUDIT_ACTION } from "@/lib/labels";
-import { int, str, type SP } from "@/lib/params";
+import { str, type SP } from "@/lib/params";
 
 export const metadata = { title: "Historial de cambios" };
-const SIZE = 40;
-
-const ENTITY_LINK: Record<string, string> = {
-  Partido: "/partidos/",
-  Equipo: "/equipos/",
-  Jugador: "/jugadores/",
-  "Sanción": "/sanciones/",
-  Liga: "/ligas/",
-};
 
 export default async function HistorialPage({ searchParams }: { searchParams: Promise<SP> }) {
   await requireUser();
   const sp = await searchParams;
-  const entity = str(sp.entidad);
-  const action = str(sp.accion);
-  const userId = str(sp.usuario);
-  const q = str(sp.q);
-  const desde = str(sp.desde);
-  const hasta = str(sp.hasta);
-  const page = int(sp.page, 1);
-  const valid = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined);
-  const where: Prisma.AuditLogWhereInput = {
-    ...(entity ? { entity } : {}),
-    ...(action ? { action } : {}),
-    ...(userId ? { userId } : {}),
-    ...(q ? { OR: [{ summary: { contains: q, mode: "insensitive" } }, { reason: { contains: q, mode: "insensitive" } }] } : {}),
-    ...(valid(desde) || valid(hasta)
-      ? {
-          createdAt: {
-            ...(valid(desde) ? { gte: fromISODate(desde!) } : {}),
-            ...(valid(hasta) ? { lt: new Date(fromISODate(hasta!).getTime() + 86_400_000) } : {}),
-          },
-        }
-      : {}),
-  };
-  const [total, logs, entities, users] = await Promise.all([
-    prisma.auditLog.count({ where }),
-    prisma.auditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * SIZE, take: SIZE, include: { user: { select: { name: true } } } }),
+  const view = resolveAuditView(Object.fromEntries(Object.entries(sp).map(([key, value]) => [key, str(value)])));
+  const { q, entidad, accion, usuario, desde, hasta, dateError } = view;
+  const base = { q, entidad, accion, usuario, desde, hasta };
+  const [{ total, logs, page, pageCount }, entities, actions, users] = await Promise.all([
+    loadAuditHistory(view),
     prisma.auditLog.groupBy({ by: ["entity"], orderBy: { entity: "asc" } }),
+    prisma.auditLog.groupBy({ by: ["action"], orderBy: { action: "asc" } }),
     prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
-  const base = { entidad: entity, accion: action, usuario: userId, q, desde, hasta };
+  // Mantener visibles los filtros de enlaces antiguos, aunque su opción ya no exista.
+  const entityOptions = [...new Set([...entities.map((item) => item.entity), ...(entidad ? [entidad] : [])])].map((value) => ({ value, label: auditEntityLabel(value) }));
+  const actionOptions = [...new Set([...Object.keys(AUDIT_ACTION), ...actions.map((item) => item.action), ...(accion ? [accion] : [])])].map((value) => ({ value, label: auditActionLabel(value) }));
+  const userOptions = [{ value: AUDIT_WITHOUT_USER, label: AUDIT_USER_FALLBACK }, ...users.map((user) => ({ value: user.id, label: user.name }))];
+  if (usuario && !userOptions.some((option) => option.value === usuario)) userOptions.push({ value: usuario, label: "Usuario no disponible" });
+  const hasFilters = Object.values(base).some(Boolean);
 
-  return (
-    <>
-      <PageHeader
-        title="Historial de cambios"
-      />
-      <Card>
-        <form className="grid grid-cols-2 items-end gap-3 border-b border-zinc-100 px-4 py-3 sm:px-5 md:grid-cols-4 xl:grid-cols-7" role="search">
-          <label className="col-span-2 text-xs font-semibold text-zinc-700">Buscar<input name="q" defaultValue={q} className={`${inputClass} mt-1`} placeholder="Resumen o motivo" /></label>
-          <label className="text-xs font-semibold text-zinc-700">Registro
-            <select name="entidad" defaultValue={entity ?? ""} className={`${inputClass} mt-1`}>
-              <option value="">Todos</option>
-              {entities.map((e) => <option key={e.entity} value={e.entity}>{e.entity}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-zinc-700">Acción
-            <select name="accion" defaultValue={action ?? ""} className={`${inputClass} mt-1`}>
-              <option value="">Todas</option>
-              {Object.entries(AUDIT_ACTION).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-zinc-700">Usuario
-            <select name="usuario" defaultValue={userId ?? ""} className={`${inputClass} mt-1`}>
-              <option value="">Todos</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-zinc-700">Desde<input type="date" name="desde" defaultValue={desde} className={`${inputClass} mt-1`} /></label>
-          <label className="text-xs font-semibold text-zinc-700">Hasta<input type="date" name="hasta" defaultValue={hasta} className={`${inputClass} mt-1`} /></label>
-          <div className="col-span-2 flex gap-2 md:col-span-4 xl:col-span-7">
-            <button className={buttonClass("dark")}>Filtrar</button>
-            <Link href="/historial" className={buttonClass("ghost")}>Limpiar</Link>
-          </div>
-        </form>
-        {logs.length === 0 ? (
-          <EmptyState title="Sin registros" />
-        ) : (
-          <ol className="divide-y divide-zinc-100">
-            {logs.map((l) => (
-              <li key={l.id} className="px-4 py-3 text-sm sm:px-5">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p>
-                    <span className="mr-2 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] font-bold text-zinc-600">{l.entity}</span>
-                    <span className="font-semibold text-zinc-900">{AUDIT_ACTION[l.action] ?? l.action}</span>
-                    {l.summary && (
-                      <span className="text-zinc-700">
-                        {" · "}
-                        {l.entityId && ENTITY_LINK[l.entity] ? <Link href={`${ENTITY_LINK[l.entity]}${l.entityId}`} className="hover:text-brand-700 hover:underline">{l.summary}</Link> : l.summary}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-zinc-500">{formatDateTime(l.createdAt)} · {l.user?.name ?? "Sistema"}</p>
-                </div>
-                {l.reason && <p className="mt-0.5 text-xs text-zinc-700"><span className="font-semibold">Motivo:</span> {l.reason}</p>}
-                {(l.before || l.after) && (
-                  <details className="mt-1">
-                    <summary className="cursor-pointer text-xs text-zinc-500">Ver valores</summary>
-                    <AuditDiff before={l.before} after={l.after} />
-                  </details>
-                )}
-              </li>
-            ))}
-          </ol>
-        )}
-        <Pagination page={page} pageCount={Math.ceil(total / SIZE)} total={total} hrefFor={(p) => withParams("/historial", { ...base, page: p })} />
-      </Card>
-    </>
-  );
+  return <>
+    <PageHeader title="Historial de cambios" description="Consulta qué se hizo, quién lo registró y cuándo. Abre cada detalle para comparar los valores." />
+    <section aria-label="Alcance del historial" className="bg-sport mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border-l-4 border-orange-400 px-5 py-5 text-white sm:px-6">
+      <div className="min-w-0"><p className="text-xs text-blue-100">Todas las temporadas</p><h2 className="mt-1 text-xl font-bold">La actividad de tu liga, en orden</h2><p className="mt-2 max-w-prose text-sm leading-relaxed text-blue-100">Este historial reúne los cambios de todo el sistema, sin limitarse a la temporada seleccionada.</p></div>
+      <span className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold"><History className="h-4 w-4" aria-hidden />Consulta de actividad</span>
+    </section>
+    {dateError && <Alert tone="warn" title="Revisa el periodo" className="mb-5">{dateError} Corrige las fechas y vuelve a aplicar los filtros.</Alert>}
+    <Card className="overflow-hidden">
+      <FilterPanel key={JSON.stringify(base)} path="/historial" params={base} total={total} chips={[
+        { name: "q", label: "Búsqueda", value: q }, { name: "entidad", label: "Registro", value: entidad ? auditEntityLabel(entidad) : undefined },
+        { name: "accion", label: "Acción", value: accion ? auditActionLabel(accion) : undefined },
+        { name: "usuario", label: "Usuario", value: userOptions.find((option) => option.value === usuario)?.label },
+        { name: "desde", label: "Desde", value: desde ? formatShort(desde) : undefined }, { name: "hasta", label: "Hasta", value: hasta ? formatShort(hasta) : undefined },
+      ]} advancedOpen={!!(desde || hasta || dateError)} advanced={<>
+        <FilterField name="desde" label="Fecha desde"><input id="desde" name="desde" type="date" defaultValue={desde} className={inputClass} aria-describedby="audit-timezone" /></FilterField>
+        <FilterField name="hasta" label="Fecha hasta"><input id="hasta" name="hasta" type="date" defaultValue={hasta} className={inputClass} aria-describedby="audit-timezone" /></FilterField>
+        <p id="audit-timezone" className="text-xs leading-relaxed text-slate-600 sm:col-span-2">Incluye los días completos, desde la primera fecha hasta la última.<br />Zona horaria: {APP_TIMEZONE.replace(/_/g, " ")}.</p>
+      </>}>
+        <FilterField name="q" label="Buscar en el historial"><input id="q" name="q" type="search" defaultValue={q} className={inputClass} placeholder="Resumen o motivo del cambio" /></FilterField>
+        <FilterSelect name="entidad" label="Tipo de registro" value={entidad} options={entityOptions} all="Todos los registros" />
+        <FilterSelect name="accion" label="Acción realizada" value={accion} options={actionOptions} all="Todas las acciones" />
+        <FilterSelect name="usuario" label="Registrado por" value={usuario} options={userOptions} all="Todos los usuarios" />
+      </FilterPanel>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-4 sm:px-5"><h2 className="text-sm font-bold text-[#102d50]">{hasFilters ? "Actividad encontrada" : "Actividad registrada"}</h2><p className="text-xs text-slate-600">Más reciente primero</p></div>
+      {logs.length > 0 ? <AuditTimeline logs={logs} linkRecords /> : <EmptyState
+        title={dateError ? "Corrige las fechas para consultar el historial" : hasFilters ? "No hay cambios con estos filtros" : "Todavía no hay cambios registrados"}
+        description={dateError ? "La lista se mostrará cuando el periodo sea válido." : hasFilters ? "Prueba con otro usuario, amplía las fechas o quita algún filtro." : "Las altas, ediciones y demás acciones registradas aparecerán aquí con su fecha y usuario."}
+        action={hasFilters || dateError ? <LinkButton href="/historial" variant="secondary">Quitar filtros</LinkButton> : undefined} />}
+      <div className="border-t border-slate-200"><Pagination page={page} pageCount={pageCount} total={total} hrefFor={(next) => withParams("/historial", { ...base, page: next })} /></div>
+    </Card>
+    <p className="mt-4 text-xs leading-relaxed text-slate-600">Los valores del detalle corresponden al momento de cada acción. “Abrir registro actual” muestra su estado más reciente.</p>
+  </>;
 }
