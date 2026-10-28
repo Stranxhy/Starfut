@@ -18,20 +18,21 @@ export function LeagueFormButton({
     <ModalButton
       label={league ? "Editar" : "Nueva liga"}
       title={league ? `Editar ${league.name}` : "Nueva liga"}
+      description={league ? "Actualiza el nombre y el lugar que ocupa en la lista de ligas." : "Crea una liga en la temporada seleccionada. Después podrás registrar sus equipos."}
       variant={league ? "secondary" : "primary"}
       size={league ? "sm" : "md"}
       icon={league ? undefined : <Plus className="h-4 w-4" />}
     >
       {(close) => (
-        <ActionForm action={action} onSuccess={close} className="space-y-3">
+        <ActionForm action={action} onSuccess={close} className="space-y-4">
           {league && <input type="hidden" name="id" value={league.id} />}
-          <TextField name="name" label="Nombre" required defaultValue={league?.name} maxLength={60} autoFocus />
-          <TextField name="sortOrder" label="Orden de presentación" type="number" min={0} max={99} defaultValue={league?.sortOrder ?? 0} />
+          <TextField name="name" label="Nombre de la liga" placeholder="Ej. Liga Premium" required defaultValue={league?.name} maxLength={60} autoFocus />
+          <TextField name="sortOrder" label="Orden de presentación" hint="Menor número, primero (0–99)" type="number" min={0} max={99} defaultValue={league?.sortOrder ?? 0} />
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={close}>
               Cancelar
             </Button>
-            <SubmitButton>Guardar</SubmitButton>
+            <SubmitButton>{league ? "Guardar cambios" : "Crear liga"}</SubmitButton>
           </div>
         </ActionForm>
       )}
