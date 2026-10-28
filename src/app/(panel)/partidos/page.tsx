@@ -3,8 +3,9 @@ import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireSeasonContext } from "@/server/season";
 import { MATCH_INCLUDE, sortMatches } from "@/server/services/matches";
-import { Badge, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, Table, TD, TH, withParams } from "@/components/ui/core";
-import { ScoreText, StatusBadge, TeamLink, TypeBadge } from "@/components/match-ui";
+import { Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, withParams } from "@/components/ui/core";
+import { MatchList } from "@/components/matches/MatchList";
+import { validMatchDate } from "@/domain/match-presentation";
 import { formatShort, fromISODate, todayISO } from "@/lib/dates";
 import { MATCH_STATUS, MATCH_TYPE } from "@/lib/labels";
 import { int, str, type SP } from "@/lib/params";
@@ -19,7 +20,7 @@ export default async function PartidosPage({ searchParams }: { searchParams: Pro
   const ctx = await requireSeasonContext();
   if (!ctx) return <EmptyState title="Sin temporada" />;
   const sp = await searchParams;
-  const fecha = str(sp.fecha);
+  const fecha = validMatchDate(str(sp.fecha));
   const jornada = str(sp.jornada);
   const liga = str(sp.liga);
   const equipo = str(sp.equipo);
@@ -30,8 +31,8 @@ export default async function PartidosPage({ searchParams }: { searchParams: Pro
 
   const today = fromISODate(todayISO());
   const and: Prisma.MatchWhereInput[] = [{ seasonId: ctx.id }];
-  if (fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) and.push({ date: fromISODate(fecha) });
-  if (jornada) and.push({ round: { number: Number(jornada), phase: "REGULAR" } });
+  if (fecha) and.push({ date: fromISODate(fecha) });
+  if (jornada && /^\d+$/.test(jornada)) and.push({ round: { number: Number(jornada), phase: "REGULAR" } });
   if (liga) and.push({ OR: [{ leagueId: liga }, { homeTeam: { leagueId: liga } }, { awayTeam: { leagueId: liga } }] });
   if (equipo) and.push({ OR: [{ homeTeamId: equipo }, { awayTeamId: equipo }] });
   if (estado && estado in MATCH_STATUS) and.push({ status: estado as MatchStatus });
@@ -57,6 +58,7 @@ export default async function PartidosPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader
         title="Partidos"
+        description="Consulta los encuentros por fecha, revisa su programación y abre el resultado de cada partido."
         actions={
           <>
             {fecha && (
@@ -97,45 +99,7 @@ export default async function PartidosPage({ searchParams }: { searchParams: Pro
             action={<LinkButton href={total > 0 ? withParams("/partidos", base) : seasonTotal > 0 ? "/partidos" : teams.length < 2 ? "/equipos" : "/calendario"} variant="secondary">{total > 0 ? "Volver a la primera página" : seasonTotal > 0 ? "Quitar filtros" : teams.length < 2 ? "Registrar equipos" : "Preparar calendario"}</LinkButton>}
           />
         ) : (
-          <Table>
-            <thead>
-              <tr>
-                <TH>Fecha</TH><TH>Hora</TH><TH>Cancha</TH><TH>Liga</TH><TH>Local</TH><TH className="text-center">Marcador</TH><TH>Visitante</TH><TH>Estado</TH><TH />
-              </tr>
-            </thead>
-            <tbody>
-              {pageItems.map((m) => (
-                <tr key={m.id} className={`hover:bg-zinc-50 ${m.status === "CANCELADO" ? "text-zinc-400" : ""}`}>
-                  <TD className="whitespace-nowrap">
-                    {formatShort(m.date)}
-                    <span className="block text-[11px] text-zinc-500">{m.round ? (m.round.phase === "REGULAR" ? `J${m.round.number}` : m.stage) : ""}</span>
-                  </TD>
-                  <TD className="tabular-nums">{m.timeSlot?.startTime ?? "—"}</TD>
-                  <TD className="whitespace-nowrap">{m.field?.name ?? "—"}</TD>
-                  <TD className="text-zinc-600">{m.league?.name ?? "—"}</TD>
-                  <TD>
-                    <TeamLink id={m.homeTeam.id} name={m.homeTeam.name} winner={m.result?.winnerTeamId === m.homeTeamId} />
-                    {!m.homeTeam.active && <Badge className="ml-1">baja</Badge>}
-                  </TD>
-                  <TD className="text-center"><ScoreText result={m.result} homeTeamId={m.homeTeamId} /></TD>
-                  <TD>
-                    <TeamLink id={m.awayTeam.id} name={m.awayTeam.name} winner={m.result?.winnerTeamId === m.awayTeamId} />
-                    {!m.awayTeam.active && <Badge className="ml-1">baja</Badge>}
-                  </TD>
-                  <TD>
-                    <div className="flex flex-wrap gap-1">
-                      <StatusBadge status={m.status} />
-                      <TypeBadge type={m.type} counts={m.countsForStandings} />
-                      {(m.locked || m.round?.locked) && m.status !== "JUGADO" && <Badge className="bg-sky-50 text-sky-800 ring-sky-200">protegido</Badge>}
-                    </div>
-                  </TD>
-                  <TD className="text-right">
-                    <LinkButton href={`/partidos/${m.id}`} size="sm" variant="secondary">Abrir</LinkButton>
-                  </TD>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+          <MatchList matches={pageItems} />
         )}
         <Pagination page={page} pageCount={Math.ceil(total / SIZE)} total={total} hrefFor={(p) => withParams("/partidos", { ...base, page: p })} />
       </Card>

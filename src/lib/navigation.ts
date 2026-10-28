@@ -36,7 +36,10 @@ export function navigationContext(pathname: string) {
   return null;
 }
 
-/** Las dos vistas usan nombres distintos para el mismo filtro de fecha. */
-export function matchViewHref(path: "/partidos" | "/resultados", date: string | null) {
-  return date ? `${path}?${new URLSearchParams({ [path === "/partidos" ? "fecha" : "date"]: date })}` : path;
+/** Conserva el contexto compartido al alternar entre las dos vistas. */
+export function matchViewHref(path: "/partidos" | "/resultados", date: string | null, league?: string | null) {
+  const params = new URLSearchParams();
+  if (date) params.set(path === "/partidos" ? "fecha" : "date", date);
+  if (league) params.set("liga", league);
+  return params.size ? `${path}?${params}` : path;
 }
