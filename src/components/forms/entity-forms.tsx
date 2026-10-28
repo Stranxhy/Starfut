@@ -214,9 +214,9 @@ export function CsvImportButton({
 // ───────── Jugadores ─────────
 export function PlayerCreateButton({ action, teams, defaultTeamId }: { action: ServerAction; teams: { value: string; label: string }[]; defaultTeamId?: string }) {
   return (
-    <ModalButton label="Nuevo jugador" title="Registrar jugador" icon={<Plus className="h-4 w-4" />}>
+    <ModalButton label="Nuevo jugador" title="Registrar jugador" description="Indica su nombre y equipo. Puedes completar el número de camiseta después." icon={<Plus className="h-4 w-4" />}>
       {(close) => (
-        <ActionForm action={action} onSuccess={close} confirmLabel="Registrar de todos modos" className="space-y-3">
+        <ActionForm action={action} onSuccess={close} confirmLabel="Registrar de todos modos" className="space-y-4">
           <TextField name="fullName" label="Nombre completo" required maxLength={80} autoFocus />
           <SelectField name="teamId" label="Equipo" required options={teams} defaultValue={defaultTeamId} placeholder="Selecciona…" />
           <TextField name="jerseyNumber" label="Número de camiseta" hint="(opcional)" type="number" min={0} max={999} />
@@ -224,7 +224,7 @@ export function PlayerCreateButton({ action, teams, defaultTeamId }: { action: S
             <Button variant="secondary" onClick={close}>
               Cancelar
             </Button>
-            <SubmitButton>Registrar</SubmitButton>
+            <SubmitButton>Registrar jugador</SubmitButton>
           </div>
         </ActionForm>
       )}
@@ -238,7 +238,7 @@ export function PlayerEditForm({ action, player }: { action: ServerAction; playe
       <input type="hidden" name="id" value={player.id} />
       <TextField name="fullName" label="Nombre completo" required defaultValue={player.fullName} maxLength={80} />
       <TextField name="jerseyNumber" label="Camiseta" type="number" min={0} max={999} defaultValue={player.jerseyNumber ?? ""} />
-      <SubmitButton>Guardar</SubmitButton>
+      <SubmitButton>Guardar cambios</SubmitButton>
     </ActionForm>
   );
 }

@@ -22,9 +22,4 @@ export function resolveTeamsView(query: Record<string, string | undefined>, leag
   };
 }
 
-/** Mantiene la consulta dentro de las páginas disponibles después de filtrar o dar de baja. */
-export function teamDirectoryPage(requestedPage: number, total: number, pageSize: number) {
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const page = Math.min(requestedPage, pageCount);
-  return { page, pageCount, skip: (page - 1) * pageSize };
-}
+export { directoryPage as teamDirectoryPage } from "./filters";
