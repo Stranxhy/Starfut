@@ -20,6 +20,7 @@ export async function getDashboard(seasonId: string) {
   const [
     teamsByLeague,
     totalTeams,
+    totalMatches,
     nextMatch,
     scheduled,
     pendingResult,
@@ -33,6 +34,7 @@ export async function getDashboard(seasonId: string) {
   ] = await Promise.all([
     prisma.team.groupBy({ by: ["leagueId"], where: { seasonId, active: true }, _count: true }),
     prisma.team.count({ where: { seasonId } }),
+    prisma.match.count({ where: { seasonId } }),
     prisma.match.findFirst({ where: { ...notCancelled, date: { gte: today }, status: { in: ["PROGRAMADO", "REPROGRAMADO", "PENDIENTE"] } }, orderBy: { date: "asc" } }),
     prisma.match.count({ where: { seasonId, status: { in: ["PROGRAMADO", "REPROGRAMADO"] }, date: { gte: today } } }),
     prisma.match.findMany({
@@ -111,10 +113,12 @@ export async function getDashboard(seasonId: string) {
       alerts.push({ tone: "info", text: `${l.league.name}: hay equipos empatados que los criterios configurados no separan.`, href: `/tabla?liga=${l.league.id}` });
     }
   }
-  if (rounds.length === 0) alerts.push({ tone: "info", text: "Aún no hay calendario. Genera la programación de las jornadas.", href: "/calendario" });
 
   return {
     season,
+    hasMatches: totalMatches > 0,
+    hasDraft: draft !== null,
+    pendingResultDate: pendingDates[0] ?? null,
     totals: {
       teams: totalTeams,
       scheduled,

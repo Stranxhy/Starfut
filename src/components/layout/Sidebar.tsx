@@ -73,8 +73,8 @@ export function Sidebar({ venue }: { venue: string }) {
           href={it.href}
           aria-current={active ? "page" : undefined}
           className={clsx(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
-            active ? "bg-white text-brand-800 shadow" : "text-white/85 hover:bg-white/10 hover:text-white",
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-300",
+            active ? "bg-white text-[#102d50] shadow ring-1 ring-[#ff981f]" : "text-white/85 hover:bg-white/10 hover:text-white",
           )}
         >
           <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -93,7 +93,7 @@ export function Sidebar({ venue }: { venue: string }) {
               type="button"
               onClick={() => setShowSettings((v) => !v)}
               aria-expanded={showSettings}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-bold tracking-[0.15em] text-white/50 uppercase hover:text-white/80"
+              className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-bold tracking-[0.15em] text-white/70 uppercase hover:text-white/80"
             >
               {g.group}
               <ChevronDown className={clsx("h-4 w-4 transition", showSettings && "rotate-180")} aria-hidden />
@@ -102,7 +102,7 @@ export function Sidebar({ venue }: { venue: string }) {
           </div>
         ) : (
           <div key={gi}>
-            {g.group && <p className="mb-1 px-3 text-[11px] font-bold tracking-[0.15em] text-white/45 uppercase">{g.group}</p>}
+            {g.group && <p className="mb-1 px-3 text-[11px] font-bold tracking-[0.15em] text-white/70 uppercase">{g.group}</p>}
             <ul className="space-y-0.5">{g.items.map(link)}</ul>
           </div>
         ),
@@ -124,19 +124,19 @@ export function Sidebar({ venue }: { venue: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed top-3 left-3 z-40 rounded-lg bg-brand-800 p-2 text-white shadow-lg lg:hidden"
+        className="fixed top-3 left-3 z-40 rounded-lg bg-[#102d50] p-2 text-white shadow-lg lg:hidden"
         aria-label="Abrir menú"
       >
         <Menu className="h-5 w-5" />
       </button>
-      <aside className="bg-sport fixed inset-y-0 left-0 z-30 hidden w-64 flex-col text-white lg:flex">
+      <aside className="bg-[#102d50] fixed inset-y-0 left-0 z-30 hidden w-64 flex-col text-white lg:flex">
         {brand}
         {nav}
       </aside>
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
-          <aside className="bg-sport absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col text-white shadow-2xl">
+          <aside className="bg-[#102d50] absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col text-white shadow-2xl">
             <button
               type="button"
               onClick={() => setOpen(false)}
