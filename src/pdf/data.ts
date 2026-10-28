@@ -224,7 +224,7 @@ export async function loadStandings(seasonId: string, p: Params): Promise<Standi
   const meta = await loadMeta(seasonId);
   const league = (await findLeague(seasonId, p, true))!;
   const round = optInt(p, "round", "jornada") ?? null;
-  const snapshot = round
+  const snapshot = round || p.get("view") === "actual"
     ? null
     : await prisma.standingSnapshot.findUnique({ where: { leagueId_kind: { leagueId: league.id, kind: "CIERRE_FASE_REGULAR" } } });
   const standings = await getLeagueStandings(league.id, snapshot ? { useSnapshot: true } : { upToRound: round ?? undefined });

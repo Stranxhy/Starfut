@@ -63,7 +63,7 @@ export const DOC_DEFS = {
   "tabla-general": entry({
     label: "Tabla general",
     orientation: "portrait",
-    params: "league=<id>[&round=N]",
+    params: "league=<id>[&round=N][&view=actual|final]",
     load: data.loadStandings,
     Component: TablaGeneralDoc,
     filename: (d) => pdf("Tabla", "General", d.standings.league.name),
