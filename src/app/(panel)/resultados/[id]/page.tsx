@@ -9,6 +9,8 @@ import { ConfirmAction } from "@/components/ui/form";
 import { Alert, Card, CardHeader, Collapsible, LinkButton, PageHeader } from "@/components/ui/core";
 import { StatusBadge, TypeBadge } from "@/components/match-ui";
 import { AuditList } from "@/components/AuditList";
+import { resultRuleScope, captureState } from "@/domain/match-presentation";
+import { MatchScoreboard } from "@/components/matches/MatchScoreboard";
 import { formatLong, toISODate } from "@/lib/dates";
 
 async function roster(teamId: string, extraIds: string[]) {
@@ -24,22 +26,21 @@ export default async function ResultadoPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const m = await prisma.match.findUnique({ where: { id }, include: { ...MATCH_INCLUDE, scorers: true, playoffTie: true } });
   if (!m) notFound();
-  const sameLeague = m.homeTeam.leagueId === m.awayTeam.leagueId;
   const [rules, home, away] = await Promise.all([
-    getScoringRules(m.seasonId, sameLeague ? m.leagueId : null),
+    getScoringRules(m.seasonId, resultRuleScope(m)),
     roster(m.homeTeamId, m.scorers.filter((s) => s.teamId === m.homeTeamId).map((s) => s.playerId)),
     roster(m.awayTeamId, m.scorers.filter((s) => s.teamId === m.awayTeamId).map((s) => s.playerId)),
   ]);
   const date = toISODate(m.date);
-  const blocked = m.status === "CANCELADO" || m.status === "PENDIENTE";
+  const blocked = ["cancelados", "programar"].includes(captureState(m));
   return (
     <>
       <PageHeader
         breadcrumb={[{ href: date ? `/resultados?date=${date}` : "/resultados", label: "Resultados" }]}
-        title={`${m.homeTeam.name} vs ${m.awayTeam.name}`}
+        title={m.result ? "Detalle del resultado" : "Capturar resultado"}
         description={
           <span className="flex flex-wrap items-center gap-2">
-            {m.date ? formatLong(m.date) : "Sin fecha"} · {m.timeSlot?.startTime ?? "—"} · {m.field?.name ?? "—"}
+            {m.league?.name ?? "Interliga"} · {m.date ? formatLong(m.date) : "Sin fecha"} · {m.timeSlot?.startTime ?? "—"} · {m.field?.name ?? "—"}
             <StatusBadge status={m.status} />
             <TypeBadge type={m.type} counts={m.countsForStandings} />
           </span>
@@ -52,12 +53,13 @@ export default async function ResultadoPage({ params }: { params: Promise<{ id: 
       {m.playoffTie && (
         <Alert tone="info" className="mb-4">Partido de eliminatoria: el ganador avanza automáticamente a la siguiente ronda configurada.</Alert>
       )}
+      {blocked && <Card className="mb-4 p-5"><MatchScoreboard homeTeam={m.homeTeam} awayTeam={m.awayTeam} result={m.result} /></Card>}
       {blocked ? (
         <Alert tone="warn">
           {m.status === "CANCELADO" ? "El partido está cancelado; no se puede registrar resultado." : "El partido no está programado; prográmalo antes de registrar el resultado."}
         </Alert>
       ) : (
-        <Card>
+        <Card className="border-t-[3px] border-t-orange-400">
           <CardHeader
             title={m.result ? "Corregir resultado oficial" : "Registrar resultado"}
             description="Marcador del tiempo regular. Los goles de penales se registran aparte y no suman a goles a favor ni al goleo."
@@ -77,6 +79,7 @@ export default async function ResultadoPage({ params }: { params: Promise<{ id: 
           />
           <div className="px-4 py-5 sm:px-5">
             <ResultForm
+              key={`${m.id}-${m.result?.version ?? 0}`}
               action={saveResultAction}
               match={{ id: m.id, homeTeam: m.homeTeam, awayTeam: m.awayTeam, isPlayoff: !!m.playoffTie || m.stage !== "REGULAR" }}
               existing={m.result}

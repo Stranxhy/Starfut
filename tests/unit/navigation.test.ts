@@ -12,6 +12,10 @@ describe("organización de la navegación", () => {
     expect(navigationContext("/eliminatorias")?.group).toBe("Competencia");
     expect(navigationContext("/equipos-inexistente")).toBeNull();
   });
+  it("conserva la liga al alternar vistas, incluso sin fecha", () => {
+    expect(matchViewHref("/resultados", "2026-10-25", "liga-a")).toBe("/resultados?date=2026-10-25&liga=liga-a");
+    expect(matchViewHref("/partidos", null, "liga-b")).toBe("/partidos?liga=liga-b");
+  });
   it("conserva la fecha al cambiar entre partidos y resultados", () => {
     expect(matchViewHref("/resultados", "2026-10-25")).toBe("/resultados?date=2026-10-25");
     expect(matchViewHref("/partidos", "2026-10-25")).toBe("/partidos?fecha=2026-10-25");
