@@ -43,7 +43,7 @@ export function CloseRegularPhaseForm({
       )}
       <TextArea name="notes" label={groups.length ? "Decisión oficial / observaciones (obligatorio)" : "Observaciones"} required={groups.length > 0} />
       <div className="flex justify-end">
-        <SubmitButton>Cerrar fase regular y congelar clasificación</SubmitButton>
+        <SubmitButton className="h-auto min-h-10 py-2 text-center whitespace-normal">Cerrar fase regular y congelar clasificación</SubmitButton>
       </div>
     </ActionForm>
   );
