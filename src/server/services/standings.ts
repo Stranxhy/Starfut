@@ -142,12 +142,12 @@ export async function getLeagueScorers(
     include: {
       player: { select: { fullName: true } },
       team: { select: { name: true } },
-      match: { select: { date: true, round: { select: { number: true } } } },
+      match: { select: { date: true, round: { select: { number: true, phase: true } } } },
     },
   });
   const [tb, standings] = await Promise.all([
     getTiebreakers(league.seasonId, leagueId, db),
-    getLeagueStandings(leagueId, {}, db),
+    getLeagueStandings(leagueId, { upToRound: opts.upToRound }, db),
   ]);
   const teamPos = new Map(standings.rows.map((r) => [r.teamId, r.position]));
   const rows = computeScorers(
@@ -162,7 +162,7 @@ export async function getLeagueScorers(
     tb.scorerCriteria,
     teamPos,
   );
-  const rounds = goals.map((g) => g.match.round?.number ?? 0).filter(Boolean);
+  const rounds = goals.flatMap((g) => g.match.round?.phase === "REGULAR" ? [g.match.round.number] : []);
   const dates = goals.map((g) => toISODate(g.match.date)).filter((d): d is string => !!d).sort();
   return {
     league: { id: league.id, name: league.name },

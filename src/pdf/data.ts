@@ -258,13 +258,13 @@ export async function loadScorers(seasonId: string, p: Params): Promise<ScorersD
   const meta = await loadMeta(seasonId);
   const league = (await findLeague(seasonId, p, true))!;
   const round = optInt(p, "round", "jornada");
-  const includePlayoffs = p.get("playoffs") === "1";
+  const includePlayoffs = round === undefined && p.get("playoffs") === "1";
   const view = await getLeagueScorers(league.id, { upToRound: round, includePlayoffs });
   return {
     meta,
     league: view.league,
     rows: view.rows,
-    caption: `Jornada ${round ?? view.throughRound ?? 0}`,
+    caption: round !== undefined ? `Hasta la jornada ${round}` : includePlayoffs ? "Fase regular + eliminatorias" : view.throughRound ? `Fase regular · jornada ${view.throughRound}` : "Fase regular",
     updated: view.lastResultDate,
     includePlayoffs,
   };
