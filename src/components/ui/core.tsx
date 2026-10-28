@@ -8,9 +8,9 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "dark";
 type Size = "sm" | "md";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-brand-700 text-white hover:bg-brand-800 focus-visible:ring-brand-500 shadow-sm",
-  secondary: "bg-white text-zinc-800 ring-1 ring-inset ring-zinc-300 hover:bg-zinc-50 focus-visible:ring-brand-500",
-  ghost: "text-zinc-700 hover:bg-zinc-100 focus-visible:ring-brand-500",
+  primary: "bg-[#102d50] text-white hover:bg-[#1b4776] focus-visible:ring-blue-700 shadow-sm",
+  secondary: "bg-white text-zinc-800 ring-1 ring-inset ring-zinc-300 hover:bg-zinc-50 focus-visible:ring-blue-700",
+  ghost: "text-zinc-700 hover:bg-zinc-100 focus-visible:ring-blue-700",
   danger: "bg-white text-red-700 ring-1 ring-inset ring-red-300 hover:bg-red-50 focus-visible:ring-red-500",
   dark: "bg-zinc-900 text-white hover:bg-black focus-visible:ring-zinc-500",
 };
@@ -158,7 +158,7 @@ export function StatCard({
     </div>
   );
   return href ? (
-    <Link href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded-xl">
+    <Link href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 rounded-xl">
       {body}
     </Link>
   ) : (
@@ -169,7 +169,7 @@ export function StatCard({
 export function EmptyState({ title, description, action }: { title: string; description?: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-      <div className="grid h-12 w-12 place-items-center rounded-full bg-brand-50 text-brand-700" aria-hidden>
+      <div className="grid h-12 w-12 place-items-center rounded-full bg-blue-50 text-blue-800" aria-hidden>
         <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="9" />
           <path d="M12 3l3 5-3 3-3-3 3-5zM3.5 10l5-2M20.5 10l-5-2M8 20l1-5 3-1 3 1 1 5" />
@@ -309,7 +309,7 @@ export function Pagination({
 // ───────── Formularios (estáticos; para formularios GET de filtros) ─────────
 
 export const inputClass =
-  "block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 disabled:bg-zinc-100 disabled:text-zinc-500";
+  "block min-h-11 w-full min-w-0 rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-700 focus:outline-2 focus:outline-offset-2 focus:outline-blue-700 disabled:bg-slate-100 disabled:text-slate-500";
 
 export function Label({ children, htmlFor, hint }: { children: ReactNode; htmlFor?: string; hint?: ReactNode }) {
   return (
