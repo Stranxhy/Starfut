@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatShort, fromISODate, toISODate, todayISO } from "@/lib/dates";
 import { SANCTION_STATUS } from "@/lib/labels";
 import { describeSource, type Zone } from "@/domain/bracket";
+import { normalizeName } from "@/domain/text";
+import { validSanctionDate } from "@/domain/sanctions-view";
 import type { StandingRow } from "@/domain/standings";
 import type { ScorerRow } from "@/domain/scorers";
 import { getLeagueScorers, getLeagueStandings, type StandingsView } from "@/server/services/standings";
@@ -494,6 +496,11 @@ export async function loadSanctions(seasonId: string, p: Params): Promise<Sancti
   const team = await findTeam(seasonId, p, false);
   const filters: string[] = [];
   const where: Prisma.SanctionWhereInput = { seasonId };
+  const query = p.get("q")?.trim();
+  if (query) {
+    where.player = { nameKey: { contains: normalizeName(query) } };
+    filters.push(`Nombre del jugador: ${query}`);
+  }
   if (league) {
     where.team = { leagueId: league.id };
     filters.push(`Liga: ${league.name}`);
@@ -525,6 +532,7 @@ export async function loadSanctions(seasonId: string, p: Params): Promise<Sancti
   }
   const from = optDate(p, "from", "desde");
   const to = optDate(p, "to", "hasta");
+  if ((from && !validSanctionDate(from)) || (to && !validSanctionDate(to))) throw new PdfParamError("El periodo de sanciones debe contener fechas válidas.");
   if (from && to && from > to) throw new PdfParamError("La fecha «desde» no puede ser posterior a la fecha «hasta».");
   if (from || to) {
     where.date = { ...(from ? { gte: fromISODate(from) } : {}), ...(to ? { lte: fromISODate(to) } : {}) };

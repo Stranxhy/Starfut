@@ -1,16 +1,16 @@
-import Link from "next/link";
-import type { Prisma, SanctionStatus } from "@prisma/client";
+import { FileDown, ShieldAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireSeasonContext } from "@/server/season";
 import { createSanctionAction } from "@/server/actions/sanctions";
 import { SanctionCreateButton } from "@/components/forms/SanctionForm";
-import { Badge, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, Table, TD, TH, withParams } from "@/components/ui/core";
-import { formatShort, fromISODate } from "@/lib/dates";
+import { SanctionsDirectory } from "@/components/sanctions/SanctionsDirectory";
+import { Alert, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, withParams } from "@/components/ui/core";
+import { formatShort } from "@/lib/dates";
 import { SANCTION_STATUS } from "@/lib/labels";
-import { PAGE_SIZE, int, str, type SP } from "@/lib/params";
-import { normalizeName } from "@/domain/text";
+import { PAGE_SIZE, str, type SP } from "@/lib/params";
+import { directoryPage } from "@/domain/filters";
+import { resolveSanctionsView, sanctionsPdfHref, sanctionsWhere } from "@/domain/sanctions-view";
 import { loadSanctionFormData } from "./data";
-
 import { FilterField, FilterPanel, FilterSelect } from "@/components/ui/filters";
 import { SearchableFilter } from "@/components/ui/SearchableFilter";
 
@@ -18,110 +18,71 @@ export const metadata = { title: "Sanciones" };
 
 export default async function SancionesPage({ searchParams }: { searchParams: Promise<SP> }) {
   const ctx = await requireSeasonContext();
-  if (!ctx) return <EmptyState title="Sin temporada" />;
-  const sp = await searchParams;
-  const q = str(sp.q);
-  const equipo = str(sp.equipo);
-  const liga = str(sp.liga);
-  const tipo = str(sp.tipo);
-  const estado = str(sp.estado);
-  const desde = str(sp.desde);
-  const hasta = str(sp.hasta);
-  const page = int(sp.page, 1);
-  const valid = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined);
-
-  const where: Prisma.SanctionWhereInput = {
-    seasonId: ctx.id,
-    ...(equipo ? { teamId: equipo } : {}),
-    ...(liga ? { team: { leagueId: liga } } : {}),
-    ...(tipo ? { typeId: tipo } : {}),
-    ...(estado && estado in SANCTION_STATUS ? { status: estado as SanctionStatus } : {}),
-    ...(q ? { player: { nameKey: { contains: normalizeName(q) } } } : {}),
-    ...(valid(desde) || valid(hasta)
-      ? { date: { ...(valid(desde) ? { gte: fromISODate(desde!) } : {}), ...(valid(hasta) ? { lte: fromISODate(hasta!) } : {}) } }
-      : {}),
-  };
-  const [total, sanctions, formData] = await Promise.all([
-    prisma.sanction.count({ where }),
-    prisma.sanction.findMany({
-      where,
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        player: { select: { id: true, fullName: true } },
-        team: { select: { id: true, name: true } },
-        type: true,
-        unit: true,
-        _count: { select: { servings: true } },
-      },
-    }),
-    loadSanctionFormData(ctx.id),
+  if (!ctx) return <EmptyState title="Prepara la temporada para llevar las sanciones" description="Las sanciones se asocian a un jugador y conservan el equipo con el que ocurrieron." action={<LinkButton href="/configuracion/temporadas">Configurar temporada</LinkButton>} />;
+  const [sp, formData, counts] = await Promise.all([
+    searchParams, loadSanctionFormData(ctx.id),
+    prisma.sanction.groupBy({ by: ["status"], where: { seasonId: ctx.id }, _count: true }),
   ]);
-  const base = { q, equipo, liga, tipo, estado, desde, hasta };
-  const pdfHref = withParams("/api/pdf/sanciones", { league: liga, team: equipo, status: estado, type: tipo, from: valid(desde), to: valid(hasta) });
+  const view = resolveSanctionsView(Object.fromEntries(Object.entries(sp).map(([key, value]) => [key, str(value)])), ctx.leagues.map((league) => league.id), formData.teams, formData.filterTypes.map((type) => type.value));
+  const { q, liga, equipo, tipo, estado, desde, hasta, dateError } = view;
+  const base = { q, liga, equipo, tipo, estado, desde, hasta };
+  const where = sanctionsWhere(ctx.id, view);
+  const total = await prisma.sanction.count({ where });
+  const { page, pageCount, skip } = directoryPage(view.requestedPage, total, PAGE_SIZE);
+  const sanctions = await prisma.sanction.findMany({ where, orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "asc" }], skip, take: PAGE_SIZE, select: {
+    id: true, date: true, reason: true, duration: true, status: true,
+    player: { select: { id: true, fullName: true } },
+    team: { select: { id: true, name: true, active: true, league: { select: { name: true } } } },
+    type: { select: { name: true } }, unit: { select: { name: true, kind: true } }, _count: { select: { servings: true } },
+  } });
+  const seasonTotal = counts.reduce((sum, row) => sum + row._count, 0);
+  const count = (statuses: string[]) => counts.filter((row) => statuses.includes(row.status)).reduce((sum, row) => sum + row._count, 0);
+  const selectedTeam = formData.teams.find((team) => team.id === equipo);
+  const selectedLeague = ctx.leagues.find((league) => league.id === liga);
+  const pdfHref = sanctionsPdfHref(ctx.id, view);
+  const hasPlayers = formData.teams.some((team) => team.players.length > 0);
+  const hasCatalogs = formData.types.length > 0 && formData.units.length > 0;
+  const createAction = !hasPlayers ? <LinkButton href="/jugadores">Registrar jugadores</LinkButton>
+    : !hasCatalogs ? <LinkButton href="/configuracion/catalogos">Configurar tipos y unidades</LinkButton>
+    : <SanctionCreateButton action={createSanctionAction} data={formData} />;
 
-  const seasonTotal = total || await prisma.sanction.count({ where: { seasonId: ctx.id } });
-
-  return (
-    <>
-      <PageHeader
-        title="Sanciones"
-        actions={
-          <>
-            <LinkButton href={pdfHref} target="_blank" variant="secondary">PDF {Object.values(base).some(Boolean) ? "filtrado" : "completo"}</LinkButton>
-            <SanctionCreateButton action={createSanctionAction} data={formData} />
-          </>
-        }
-      />
-      <Card>
-        <FilterPanel key={JSON.stringify(base)} path="/sanciones" params={base} total={total} chips={[
-          { name: "q", label: "Jugador", value: q },
-          { name: "liga", label: "Liga", value: liga ? ctx.leagues.find((l) => l.id === liga)?.name ?? "Selección no disponible" : undefined },
-          { name: "equipo", label: "Equipo", value: equipo ? formData.teams.find((t) => t.id === equipo)?.name ?? "Selección no disponible" : undefined },
-          { name: "estado", label: "Estado", value: estado && estado in SANCTION_STATUS ? SANCTION_STATUS[estado as SanctionStatus].label : undefined },
-          { name: "tipo", label: "Tipo", value: tipo ? formData.types.find((t) => t.value === tipo)?.label ?? "Selección no disponible" : undefined },
-          { name: "desde", label: "Desde", value: desde ? formatShort(desde) : undefined },
-          { name: "hasta", label: "Hasta", value: hasta ? formatShort(hasta) : undefined },
-        ]} advancedOpen={!!(tipo || desde || hasta)} advanced={<>
-          <FilterSelect name="tipo" label="Tipo de sanción" value={tipo} options={formData.types} />
-          <FilterField name="desde" label="Desde"><input id="desde" type="date" name="desde" defaultValue={desde} className={inputClass} /></FilterField>
-          <FilterField name="hasta" label="Hasta"><input id="hasta" type="date" name="hasta" defaultValue={hasta} className={inputClass} /></FilterField>
-        </>}>
-          <FilterField name="q" label="Jugador"><input id="q" name="q" type="search" defaultValue={q} className={inputClass} placeholder="Nombre del jugador…" /></FilterField>
-          <FilterSelect name="liga" label="Liga" value={liga} all="Todas las ligas" options={ctx.leagues.map((l) => ({ value: l.id, label: l.name }))} />
-          <SearchableFilter name="equipo" label="Equipo" value={equipo} all="Todos los equipos" options={formData.teams.map((t) => ({ value: t.id, label: t.name }))} />
-          <FilterSelect name="estado" label="Estado" value={estado} all="Todos los estados" options={Object.entries(SANCTION_STATUS).map(([value, v]) => ({ value, label: v.label }))} />
-        </FilterPanel>
-        {sanctions.length === 0 ? (
-          <EmptyState
-            title={total > 0 ? "No hay sanciones en esta página" : seasonTotal > 0 ? "No hay sanciones con estos filtros" : "Sin sanciones registradas"}
-            description={seasonTotal > 0 ? "Amplía las fechas o quita algún filtro para encontrar otros registros." : "Aquí podrás consultar las sanciones y dar seguimiento a su cumplimiento."}
-            action={<LinkButton href={total > 0 ? withParams("/sanciones", base) : seasonTotal > 0 ? "/sanciones" : "/jugadores"} variant="secondary">{total > 0 ? "Volver a la primera página" : seasonTotal > 0 ? "Quitar filtros" : "Ver jugadores"}</LinkButton>}
-          />
-        ) : (
-          <Table>
-            <thead>
-              <tr><TH>Fecha</TH><TH>Jugador</TH><TH>Equipo</TH><TH>Tipo</TH><TH>Motivo</TH><TH>Duración</TH><TH>Cumplimiento</TH><TH>Estado</TH></tr>
-            </thead>
-            <tbody>
-              {sanctions.map((s) => (
-                <tr key={s.id} className="hover:bg-zinc-50">
-                  <TD><Link href={`/sanciones/${s.id}`} className="font-semibold hover:text-brand-700 hover:underline">{formatShort(s.date)}</Link></TD>
-                  <TD className="font-semibold"><Link href={`/jugadores/${s.player.id}`} className="hover:underline">{s.player.fullName}</Link></TD>
-                  <TD>{s.team.name}</TD>
-                  <TD>{s.type.name}</TD>
-                  <TD className="max-w-xs truncate text-zinc-600" title={s.reason}>{s.reason}</TD>
-                  <TD className="whitespace-nowrap">{s.duration} {s.unit.name.toLowerCase()}</TD>
-                  <TD className="tabular-nums">{s.unit.kind === "PARTIDOS" ? `${s._count.servings} / ${s.duration} partidos` : s._count.servings ? `${s._count.servings} registro(s)` : "—"}</TD>
-                  <TD><Badge className={SANCTION_STATUS[s.status].className}>{SANCTION_STATUS[s.status].label}</Badge></TD>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-        <Pagination page={page} pageCount={Math.ceil(total / PAGE_SIZE)} total={total} hrefFor={(p) => withParams("/sanciones", { ...base, page: p })} />
-      </Card>
-    </>
-  );
+  return <>
+    <PageHeader title="Sanciones" description="Consulta los motivos, revisa el estado de cada caso y lleva el seguimiento de su cumplimiento."
+      actions={<>{pdfHref && <LinkButton href={pdfHref} target="_blank" variant="secondary"><FileDown className="h-4 w-4" aria-hidden />PDF {Object.values(base).some(Boolean) ? "filtrado" : "completo"}</LinkButton>}{createAction}</>} />
+    <section aria-label="Resumen de sanciones de toda la temporada" className="mb-5 overflow-hidden rounded-xl border border-slate-300 bg-white">
+      <div className="bg-sport flex flex-wrap items-center justify-between gap-4 border-l-4 border-orange-400 px-5 py-5 text-white sm:px-6">
+        <div className="min-w-0"><p className="text-xs font-medium text-blue-100">{ctx.name}</p><h2 className="mt-1 text-xl font-bold">Control disciplinario</h2><p className="mt-2 text-sm leading-relaxed text-blue-100">Resumen de toda la temporada. Los filtros se aplican a la lista y al PDF.</p></div>
+        <span className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold"><ShieldAlert className="h-4 w-4" aria-hidden />{seasonTotal} {seasonTotal === 1 ? "sanción registrada" : "sanciones registradas"}</span>
+      </div>
+      <dl className="grid gap-4 px-5 py-4 sm:grid-cols-3 sm:px-6">
+        <div><dt className="text-xs font-semibold text-slate-600">Por atender</dt><dd className="mt-1 text-2xl font-bold text-amber-800 tabular-nums">{count(["ACTIVA", "PENDIENTE", "EN_REVISION"])}</dd><dd className="mt-1 text-xs text-slate-600">Activas, pendientes y en revisión</dd></div>
+        <div><dt className="text-xs font-semibold text-slate-600">Cumplidas</dt><dd className="mt-1 text-2xl font-bold text-[#102d50] tabular-nums">{count(["CUMPLIDA"])}</dd><dd className="mt-1 text-xs text-slate-600">Con estado Cumplida</dd></div>
+        <div><dt className="text-xs font-semibold text-slate-600">Canceladas</dt><dd className="mt-1 text-2xl font-bold text-slate-600 tabular-nums">{count(["CANCELADA"])}</dd><dd className="mt-1 text-xs text-slate-600">Conservadas en el historial</dd></div>
+      </dl>
+    </section>
+    {dateError && <Alert tone="warn" title="Revisa el periodo" className="mb-5">{dateError} Corrige las fechas y aplica los filtros para consultar o exportar los resultados.</Alert>}
+    <Card>
+      <FilterPanel key={JSON.stringify(base)} path="/sanciones" params={base} total={total} chips={[
+        { name: "q", label: "Jugador", value: q }, { name: "liga", label: "Liga", value: selectedLeague?.name },
+        { name: "equipo", label: "Equipo", value: selectedTeam?.name }, { name: "estado", label: "Estado", value: estado ? SANCTION_STATUS[estado].label : undefined },
+        { name: "tipo", label: "Tipo", value: formData.filterTypes.find((type) => type.value === tipo)?.label },
+        { name: "desde", label: "Desde", value: desde ? formatShort(desde) : undefined }, { name: "hasta", label: "Hasta", value: hasta ? formatShort(hasta) : undefined },
+      ]} advancedOpen={!!(tipo || desde || hasta || dateError)} advanced={<>
+        <FilterSelect name="tipo" label="Tipo de sanción" value={tipo} options={formData.filterTypes} all="Todos los tipos" />
+        <FilterField name="desde" label="Fecha desde"><input id="desde" type="date" name="desde" defaultValue={desde} className={inputClass} /></FilterField>
+        <FilterField name="hasta" label="Fecha hasta"><input id="hasta" type="date" name="hasta" defaultValue={hasta} className={inputClass} /></FilterField>
+      </>}>
+        <FilterField name="q" label="Nombre del jugador"><input id="q" name="q" type="search" defaultValue={q} className={inputClass} placeholder="Buscar jugador por nombre" /></FilterField>
+        <FilterSelect name="liga" label="Liga de la sanción" value={liga} all="Todas las ligas" options={ctx.leagues.map((league) => ({ value: league.id, label: league.name }))} />
+        <SearchableFilter name="equipo" label="Equipo de la sanción" value={equipo} all="Todos los equipos" options={formData.teams.map((team) => ({ value: team.id, label: `${team.name} (${team.leagueName})${team.active ? "" : " · Baja"}` }))} />
+        <FilterSelect name="estado" label="Estado" value={estado} all="Todos los estados" options={Object.entries(SANCTION_STATUS).map(([value, info]) => ({ value, label: info.label }))} />
+      </FilterPanel>
+      {sanctions.length > 0 ? <SanctionsDirectory sanctions={sanctions} /> : <EmptyState
+        title={dateError ? "Corrige las fechas para consultar sanciones" : seasonTotal > 0 ? "No hay sanciones con estos filtros" : "Sin sanciones registradas"}
+        description={dateError ? "La lista se mostrará cuando el periodo sea válido." : seasonTotal > 0 ? "Amplía el periodo o quita algún filtro para encontrar otros registros." : "Al registrar una sanción podrás consultar su motivo, duración y seguimiento en una sola ficha."}
+        action={seasonTotal > 0 || dateError ? <LinkButton href="/sanciones" variant="secondary">Quitar filtros</LinkButton> : createAction} />}
+      <Pagination page={page} pageCount={pageCount} total={total} hrefFor={(next) => withParams("/sanciones", { ...base, page: next })} />
+    </Card>
+    <p className="mt-4 text-xs leading-relaxed text-slate-600">La liga y el equipo corresponden a la sanción, aunque el jugador haya cambiado de equipo. El PDF incluye todos los resultados de los filtros aplicados, no solo esta página.</p>
+  </>;
 }
