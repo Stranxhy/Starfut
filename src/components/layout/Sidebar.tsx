@@ -129,14 +129,14 @@ export function Sidebar({ venue }: { venue: string }) {
       >
         <Menu className="h-5 w-5" />
       </button>
-      <aside className="bg-[#102d50] fixed inset-y-0 left-0 z-30 hidden w-64 flex-col text-white lg:flex">
+      <aside className="bg-sport fixed inset-y-0 left-0 z-30 hidden w-64 flex-col text-white lg:flex">
         {brand}
         {nav}
       </aside>
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
-          <aside className="bg-[#102d50] absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col text-white shadow-2xl">
+          <aside className="bg-sport absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col text-white shadow-2xl">
             <button
               type="button"
               onClick={() => setOpen(false)}

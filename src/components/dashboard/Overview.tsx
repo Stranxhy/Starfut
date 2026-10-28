@@ -71,7 +71,7 @@ export function DashboardOverview({ seasonName, progress, totals, teamsByLeague 
         <span className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700">{seasonName}</span>
       </div>
 
-      <section aria-labelledby="next-action-title" className="overflow-hidden rounded-2xl border border-[#163d68] bg-[#102d50] text-white">
+      <section aria-labelledby="next-action-title" className="bg-sport overflow-hidden rounded-2xl border border-[#163d68] text-white">
         <div className="grid gap-6 border-l-4 border-[#ff981f] p-5 sm:p-7 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
           <div>
             {progress.nextDate && (
