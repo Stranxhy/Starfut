@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { normalizeName } from "@/domain/text";
 
 /** Radios nativos: selección con teclado y envío GET, incluso antes de hidratar. */
@@ -33,8 +33,8 @@ export function SearchableFilter({ name, label, value = "", options, all = "Todo
       }} onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
       }}>
-        <summary ref={summary} aria-labelledby={`${id}-label ${id}-value`} className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 hover:border-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 [&::-webkit-details-marker]:hidden">
-          <span id={`${id}-value`} className="truncate">{selectedLabel}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500 group-open:rotate-180" aria-hidden />
+        <summary ref={summary} aria-labelledby={`${id}-label ${id}-value`} className="filter-control flex cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden">
+          <span id={`${id}-value`} className="truncate">{selectedLabel}</span>
         </summary>
         <div className="absolute right-0 left-0 z-30 mt-2 rounded-xl border border-slate-300 bg-white p-3 shadow-xl">
           <div className="relative mb-2">

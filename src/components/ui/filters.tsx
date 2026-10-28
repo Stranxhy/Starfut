@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
-import { buttonClass, inputClass } from "./core";
+import { buttonClass } from "./core";
 import { removeFilter, type FilterParams } from "@/domain/filters";
 
 export type FilterChip = { name: string; label: string; value?: string; resetValue?: string };
@@ -16,7 +16,7 @@ export function FilterSelect({ name, label, value, options, all = "Todos" }: {
 }) {
   return (
     <FilterField name={name} label={label}>
-      <select id={name} name={name} defaultValue={value ?? ""} className={inputClass}>
+      <select id={name} name={name} defaultValue={value ?? ""} className="filter-control block">
         {all !== false && <option value="">{all}</option>}
         {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
