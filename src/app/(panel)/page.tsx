@@ -89,7 +89,7 @@ export default async function DashboardPage() {
             Elegir otra fecha
           </Link>
         </div>
-        <WhatsAppPdfs leagues={leagues.map(({ league }) => ({ id: league.id, name: league.name }))} rolDate={days.rolDate} resultsDate={days.resultsDate} />
+        <WhatsAppPdfs seasonId={seasonId} leagues={leagues.map(({ league }) => ({ id: league.id, name: league.name }))} rolDate={days.rolDate} resultsDate={days.resultsDate} />
       </section>
       )}
 
