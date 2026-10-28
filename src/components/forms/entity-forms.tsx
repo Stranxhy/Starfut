@@ -53,24 +53,30 @@ export interface TeamFormValues {
 
 export function TeamFields({ leagues, team }: { leagues: Opt[]; team?: TeamFormValues }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-5">
       {team?.id && <input type="hidden" name="id" value={team.id} />}
-      <TextField name="name" label="Nombre del equipo" required defaultValue={team?.name} maxLength={60} className="sm:col-span-2" />
-      <SelectField name="leagueId" label="Liga" required options={leagues} defaultValue={team?.leagueId ?? leagues[0]?.value} />
-      <TextField name="contactName" label="Responsable" hint="(opcional)" defaultValue={team?.contactName ?? ""} maxLength={80} />
-      <TextField name="contactPhone" label="Teléfono" hint="(opcional)" defaultValue={team?.contactPhone ?? ""} inputMode="tel" />
-      <TextField name="contactEmail" label="Correo" hint="(opcional)" type="email" defaultValue={team?.contactEmail ?? ""} />
-      <TextArea name="notes" label="Observaciones" defaultValue={team?.notes ?? ""} className="sm:col-span-2" />
+      <fieldset className="grid min-w-0 gap-3 sm:grid-cols-2">
+        <legend className="mb-3 text-sm font-bold text-[#102d50]">Datos del equipo</legend>
+        <TextField name="name" label="Nombre del equipo" required defaultValue={team?.name} maxLength={60} />
+        <SelectField name="leagueId" label="Liga" required options={leagues} defaultValue={team?.leagueId ?? leagues[0]?.value} />
+      </fieldset>
+      <fieldset className="grid min-w-0 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+        <legend className="px-1 text-sm font-bold text-[#102d50]">Contacto (opcional)</legend>
+        <TextField name="contactName" label="Responsable" defaultValue={team?.contactName ?? ""} maxLength={80} className="sm:col-span-2" />
+        <TextField name="contactPhone" label="Teléfono" defaultValue={team?.contactPhone ?? ""} inputMode="tel" />
+        <TextField name="contactEmail" label="Correo" type="email" defaultValue={team?.contactEmail ?? ""} />
+      </fieldset>
+      <TextArea name="notes" label="Observaciones" hint="(opcional)" defaultValue={team?.notes ?? ""} />
     </div>
   );
 }
 
-export function TeamCreateButton({ action, leagues }: { action: ServerAction; leagues: Opt[] }) {
+export function TeamCreateButton({ action, leagues, defaultLeagueId }: { action: ServerAction; leagues: Opt[]; defaultLeagueId?: string }) {
   return (
-    <ModalButton label="Nuevo equipo" title="Registrar equipo" icon={<Plus className="h-4 w-4" />} wide>
+    <ModalButton label="Nuevo equipo" title="Registrar equipo" description="Elige su liga y agrega los datos del responsable. Después podrás completar la plantilla." icon={<Plus className="h-4 w-4" />} wide>
       {(close) => (
         <ActionForm action={action} onSuccess={close} confirmLabel="Registrar de todos modos">
-          <TeamFields leagues={leagues} />
+          <TeamFields leagues={leagues} team={defaultLeagueId ? { leagueId: defaultLeagueId } : undefined} />
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="secondary" onClick={close}>
               Cancelar
@@ -99,11 +105,11 @@ export function LogoForm({ action, teamId, hasLogo }: { action: ServerAction; te
     <div className="space-y-2">
       <ActionForm action={action} className="flex flex-wrap items-end gap-2">
         <input type="hidden" name="id" value={teamId} />
-        <div>
+        <div className="min-w-0">
           <label className="mb-1 block text-xs font-semibold text-zinc-700" htmlFor={`logo-${teamId}`}>
             Escudo (PNG, JPG o WEBP · máx. 512 KB)
           </label>
-          <input id={`logo-${teamId}`} type="file" name="logo" accept="image/png,image/jpeg,image/webp" className="block text-sm" required />
+          <input id={`logo-${teamId}`} type="file" name="logo" accept="image/png,image/jpeg,image/webp" className="block w-full max-w-full text-sm" required />
         </div>
         <SubmitButton size="sm" variant="secondary">
           Subir escudo
