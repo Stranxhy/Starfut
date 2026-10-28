@@ -4,9 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { requireSeasonContext } from "@/server/season";
 import { createTeamAction, importTeamsCsvAction } from "@/server/actions/teams";
 import { CsvImportButton, TeamCreateButton } from "@/components/forms/entity-forms";
-import { Badge, buttonClass, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, SortTH, Table, TD, TH, withParams } from "@/components/ui/core";
+import { Badge, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, SortTH, Table, TD, TH, withParams } from "@/components/ui/core";
 import { PAGE_SIZE, int, str, type SP } from "@/lib/params";
 import { normalizeName } from "@/domain/text";
+
+import { FilterField, FilterPanel, FilterSelect } from "@/components/ui/filters";
 
 export const metadata = { title: "Equipos" };
 
@@ -43,6 +45,8 @@ export default async function EquiposPage({ searchParams }: { searchParams: Prom
   const base = { q, liga, estado, sort, dir };
   const href = (p: Record<string, string | number | undefined>) => withParams("/equipos", { ...base, ...p });
 
+  const seasonTotal = total || await prisma.team.count({ where: { seasonId: ctx.id } });
+
   return (
     <>
       <PageHeader
@@ -64,40 +68,25 @@ export default async function EquiposPage({ searchParams }: { searchParams: Prom
         }
       />
       <Card>
-        <form className="flex flex-wrap items-end gap-3 border-b border-zinc-100 px-4 py-3 sm:px-5" role="search">
-          <div className="min-w-48 flex-1">
-            <label htmlFor="q" className="mb-1 block text-xs font-semibold text-zinc-700">
-              Buscar
-            </label>
-            <input id="q" name="q" defaultValue={q} placeholder="Nombre del equipo" className={inputClass} />
-          </div>
-          <div>
-            <label htmlFor="liga" className="mb-1 block text-xs font-semibold text-zinc-700">
-              Liga
-            </label>
-            <select id="liga" name="liga" defaultValue={liga ?? ""} className={inputClass}>
-              <option value="">Todas</option>
-              {ctx.leagues.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="estado" className="mb-1 block text-xs font-semibold text-zinc-700">
-              Estado
-            </label>
-            <select id="estado" name="estado" defaultValue={estado} className={inputClass}>
-              <option value="activos">Activos</option>
-              <option value="inactivos">Dados de baja</option>
-              <option value="todos">Todos</option>
-            </select>
-          </div>
-          <button className={buttonClass("dark")}>Filtrar</button>
-        </form>
+        <FilterPanel key={JSON.stringify(base)} path="/equipos" params={base} total={total} preserve={["sort", "dir"]} chips={[
+          { name: "q", label: "Nombre", value: q },
+          { name: "liga", label: "Liga", value: liga ? ctx.leagues.find((l) => l.id === liga)?.name ?? "Selección no disponible" : undefined },
+          { name: "estado", label: "Estado", value: estado === "activos" ? "Activos" : estado === "inactivos" ? "Dados de baja" : undefined, resetValue: "todos" },
+        ]}>
+          <FilterField name="q" label="Equipo"><input id="q" name="q" type="search" defaultValue={q} placeholder="Nombre del equipo…" className={inputClass} /></FilterField>
+          <FilterSelect name="liga" label="Liga" value={liga} all="Todas las ligas" options={leagueOpts} />
+          <FilterSelect name="estado" label="Estado" value={estado} all={false} options={[{ value: "activos", label: "Activos" }, { value: "inactivos", label: "Dados de baja" }, { value: "todos", label: "Todos" }]} />
+        </FilterPanel>
         {teams.length === 0 ? (
-          <EmptyState title="No hay equipos que coincidan" description="Ajusta los filtros o registra un equipo nuevo." />
+          <EmptyState
+            title={total > 0 ? "No hay equipos en esta página" : seasonTotal > 0 ? "No hay equipos con estos filtros" : "Registra los primeros equipos"}
+            description={seasonTotal > 0 ? "Puedes cambiar la liga, buscar otro nombre o incluir equipos dados de baja." : "Agrega los equipos de cada liga para empezar a organizar los partidos."}
+            action={seasonTotal > 0 ? (
+              <LinkButton href={total > 0 ? withParams("/equipos", base) : "/equipos?estado=todos"} variant="secondary">
+                {total > 0 ? "Volver a la primera página" : "Ver todos los equipos"}
+              </LinkButton>
+            ) : <TeamCreateButton action={createTeamAction} leagues={leagueOpts} />}
+          />
         ) : (
           <Table>
             <thead>

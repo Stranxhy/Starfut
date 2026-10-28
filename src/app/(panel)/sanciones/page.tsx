@@ -4,12 +4,15 @@ import { prisma } from "@/lib/prisma";
 import { requireSeasonContext } from "@/server/season";
 import { createSanctionAction } from "@/server/actions/sanctions";
 import { SanctionCreateButton } from "@/components/forms/SanctionForm";
-import { Badge, buttonClass, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, Table, TD, TH, withParams } from "@/components/ui/core";
+import { Badge, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, Table, TD, TH, withParams } from "@/components/ui/core";
 import { formatShort, fromISODate } from "@/lib/dates";
 import { SANCTION_STATUS } from "@/lib/labels";
 import { PAGE_SIZE, int, str, type SP } from "@/lib/params";
 import { normalizeName } from "@/domain/text";
 import { loadSanctionFormData } from "./data";
+
+import { FilterField, FilterPanel, FilterSelect } from "@/components/ui/filters";
+import { SearchableFilter } from "@/components/ui/SearchableFilter";
 
 export const metadata = { title: "Sanciones" };
 
@@ -58,6 +61,8 @@ export default async function SancionesPage({ searchParams }: { searchParams: Pr
   const base = { q, equipo, liga, tipo, estado, desde, hasta };
   const pdfHref = withParams("/api/pdf/sanciones", { league: liga, team: equipo, status: estado, type: tipo, from: valid(desde), to: valid(hasta) });
 
+  const seasonTotal = total || await prisma.sanction.count({ where: { seasonId: ctx.id } });
+
   return (
     <>
       <PageHeader
@@ -70,54 +75,30 @@ export default async function SancionesPage({ searchParams }: { searchParams: Pr
         }
       />
       <Card>
-        <form className="grid grid-cols-2 items-end gap-3 border-b border-zinc-100 px-4 py-3 sm:px-5 md:grid-cols-4 xl:grid-cols-8" role="search">
-          <div className="col-span-2">
-            <label htmlFor="q" className="mb-1 block text-xs font-semibold text-zinc-700">Jugador</label>
-            <input id="q" name="q" defaultValue={q} className={inputClass} placeholder="Nombre" />
-          </div>
-          <div>
-            <label htmlFor="liga" className="mb-1 block text-xs font-semibold text-zinc-700">Liga</label>
-            <select id="liga" name="liga" defaultValue={liga ?? ""} className={inputClass}>
-              <option value="">Todas</option>
-              {ctx.leagues.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="equipo" className="mb-1 block text-xs font-semibold text-zinc-700">Equipo</label>
-            <select id="equipo" name="equipo" defaultValue={equipo ?? ""} className={inputClass}>
-              <option value="">Todos</option>
-              {formData.teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="tipo" className="mb-1 block text-xs font-semibold text-zinc-700">Tipo</label>
-            <select id="tipo" name="tipo" defaultValue={tipo ?? ""} className={inputClass}>
-              <option value="">Todos</option>
-              {formData.types.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="estado" className="mb-1 block text-xs font-semibold text-zinc-700">Estado</label>
-            <select id="estado" name="estado" defaultValue={estado ?? ""} className={inputClass}>
-              <option value="">Todos</option>
-              {Object.entries(SANCTION_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="desde" className="mb-1 block text-xs font-semibold text-zinc-700">Desde</label>
-            <input id="desde" type="date" name="desde" defaultValue={desde} className={inputClass} />
-          </div>
-          <div>
-            <label htmlFor="hasta" className="mb-1 block text-xs font-semibold text-zinc-700">Hasta</label>
-            <input id="hasta" type="date" name="hasta" defaultValue={hasta} className={inputClass} />
-          </div>
-          <div className="col-span-2 flex gap-2 md:col-span-4 xl:col-span-8">
-            <button className={buttonClass("dark")}>Filtrar</button>
-            <Link href="/sanciones" className={buttonClass("ghost")}>Limpiar</Link>
-          </div>
-        </form>
+        <FilterPanel key={JSON.stringify(base)} path="/sanciones" params={base} total={total} chips={[
+          { name: "q", label: "Jugador", value: q },
+          { name: "liga", label: "Liga", value: liga ? ctx.leagues.find((l) => l.id === liga)?.name ?? "Selección no disponible" : undefined },
+          { name: "equipo", label: "Equipo", value: equipo ? formData.teams.find((t) => t.id === equipo)?.name ?? "Selección no disponible" : undefined },
+          { name: "estado", label: "Estado", value: estado && estado in SANCTION_STATUS ? SANCTION_STATUS[estado as SanctionStatus].label : undefined },
+          { name: "tipo", label: "Tipo", value: tipo ? formData.types.find((t) => t.value === tipo)?.label ?? "Selección no disponible" : undefined },
+          { name: "desde", label: "Desde", value: desde ? formatShort(desde) : undefined },
+          { name: "hasta", label: "Hasta", value: hasta ? formatShort(hasta) : undefined },
+        ]} advancedOpen={!!(tipo || desde || hasta)} advanced={<>
+          <FilterSelect name="tipo" label="Tipo de sanción" value={tipo} options={formData.types} />
+          <FilterField name="desde" label="Desde"><input id="desde" type="date" name="desde" defaultValue={desde} className={inputClass} /></FilterField>
+          <FilterField name="hasta" label="Hasta"><input id="hasta" type="date" name="hasta" defaultValue={hasta} className={inputClass} /></FilterField>
+        </>}>
+          <FilterField name="q" label="Jugador"><input id="q" name="q" type="search" defaultValue={q} className={inputClass} placeholder="Nombre del jugador…" /></FilterField>
+          <FilterSelect name="liga" label="Liga" value={liga} all="Todas las ligas" options={ctx.leagues.map((l) => ({ value: l.id, label: l.name }))} />
+          <SearchableFilter name="equipo" label="Equipo" value={equipo} all="Todos los equipos" options={formData.teams.map((t) => ({ value: t.id, label: t.name }))} />
+          <FilterSelect name="estado" label="Estado" value={estado} all="Todos los estados" options={Object.entries(SANCTION_STATUS).map(([value, v]) => ({ value, label: v.label }))} />
+        </FilterPanel>
         {sanctions.length === 0 ? (
-          <EmptyState title="Sin sanciones que coincidan" />
+          <EmptyState
+            title={total > 0 ? "No hay sanciones en esta página" : seasonTotal > 0 ? "No hay sanciones con estos filtros" : "Sin sanciones registradas"}
+            description={seasonTotal > 0 ? "Amplía las fechas o quita algún filtro para encontrar otros registros." : "Aquí podrás consultar las sanciones y dar seguimiento a su cumplimiento."}
+            action={<LinkButton href={total > 0 ? withParams("/sanciones", base) : seasonTotal > 0 ? "/sanciones" : "/jugadores"} variant="secondary">{total > 0 ? "Volver a la primera página" : seasonTotal > 0 ? "Quitar filtros" : "Ver jugadores"}</LinkButton>}
+          />
         ) : (
           <Table>
             <thead>

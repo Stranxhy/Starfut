@@ -2,10 +2,12 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireSeasonContext } from "@/server/season";
 import { getLeagueStandings } from "@/server/services/standings";
-import { Alert, Badge, Card, CardHeader, EmptyState, LinkButton, PageHeader, Table, TD, TH, withParams } from "@/components/ui/core";
+import { Alert, Badge, Card, CardHeader, EmptyState, LinkButton, PageHeader, Table, TD, TH, withParams, inputClass, buttonClass } from "@/components/ui/core";
 import { formatLong } from "@/lib/dates";
 import { STANDING_ABBR } from "@/lib/labels";
 import { str, type SP } from "@/lib/params";
+
+import { LeagueTabs } from "@/components/ui/filters";
 
 export const metadata = { title: "Tabla general" };
 
@@ -36,25 +38,17 @@ export default async function TablaPage({ searchParams }: { searchParams: Promis
         title="Tabla general"
         actions={<LinkButton href={withParams("/api/pdf/tabla-general", { league: league.id, round })} target="_blank">Generar PDF</LinkButton>}
       />
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {ctx.leagues.map((l) => (
-          <Link
-            key={l.id}
-            href={`/tabla?liga=${l.id}`}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold ring-1 ${l.id === league.id ? "bg-brand-700 text-white ring-brand-700" : "bg-white text-zinc-700 ring-zinc-300 hover:ring-brand-400"}`}
-          >
-            {l.name}
-          </Link>
-        ))}
-        <form className="ml-auto flex items-center gap-2 text-xs">
+      <div className="mb-4">
+        <LeagueTabs path="/tabla" leagues={ctx.leagues} selected={league.id} params={{ jornada: round, vista: view }} />
+        <form className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-300 bg-white p-4 text-sm">
           <input type="hidden" name="liga" value={league.id} />
           <input type="hidden" name="vista" value="actual" />
           <label htmlFor="jornada" className="font-semibold text-zinc-600">Hasta la jornada</label>
-          <select id="jornada" name="jornada" defaultValue={round ?? ""} className="rounded-lg py-1.5 ring-1 ring-zinc-300">
+          <select id="jornada" name="jornada" defaultValue={round ?? ""} className={`${inputClass} max-w-40`}>
             <option value="">Todas</option>
             {rounds.map((r) => <option key={r.id} value={r.number}>{r.number}</option>)}
           </select>
-          <button className="rounded-lg bg-zinc-900 px-3 py-1.5 font-semibold text-white">Ver</button>
+          <button className={buttonClass("primary")}>Ver</button>
         </form>
       </div>
       {snapshot && (

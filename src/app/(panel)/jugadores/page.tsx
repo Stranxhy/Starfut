@@ -4,9 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { requireSeasonContext } from "@/server/season";
 import { createPlayerAction, importPlayersCsvAction } from "@/server/actions/people";
 import { CsvImportButton, PlayerCreateButton } from "@/components/forms/entity-forms";
-import { Badge, buttonClass, Card, EmptyState, inputClass, PageHeader, Pagination, SortTH, Table, TD, TH, withParams } from "@/components/ui/core";
+import { Badge, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, SortTH, Table, TD, TH, withParams } from "@/components/ui/core";
 import { PAGE_SIZE, int, str, type SP } from "@/lib/params";
 import { normalizeName } from "@/domain/text";
+
+import { FilterField, FilterPanel, FilterSelect } from "@/components/ui/filters";
+import { SearchableFilter } from "@/components/ui/SearchableFilter";
 
 export const metadata = { title: "Jugadores" };
 
@@ -52,6 +55,8 @@ export default async function JugadoresPage({ searchParams }: { searchParams: Pr
   const base = { q, equipo, liga, estado, sort, dir };
   const href = (p: Record<string, string | number | undefined>) => withParams("/jugadores", { ...base, ...p });
 
+  const seasonTotal = total || await prisma.player.count({ where: { seasonId: ctx.id } });
+
   return (
     <>
       <PageHeader
@@ -70,37 +75,23 @@ export default async function JugadoresPage({ searchParams }: { searchParams: Pr
         }
       />
       <Card>
-        <form className="flex flex-wrap items-end gap-3 border-b border-zinc-100 px-4 py-3 sm:px-5" role="search">
-          <div className="min-w-48 flex-1">
-            <label htmlFor="q" className="mb-1 block text-xs font-semibold text-zinc-700">Buscar</label>
-            <input id="q" name="q" defaultValue={q} placeholder="Nombre del jugador" className={inputClass} />
-          </div>
-          <div>
-            <label htmlFor="liga" className="mb-1 block text-xs font-semibold text-zinc-700">Liga</label>
-            <select id="liga" name="liga" defaultValue={liga ?? ""} className={inputClass}>
-              <option value="">Todas</option>
-              {ctx.leagues.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="equipo" className="mb-1 block text-xs font-semibold text-zinc-700">Equipo</label>
-            <select id="equipo" name="equipo" defaultValue={equipo ?? ""} className={inputClass}>
-              <option value="">Todos</option>
-              {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="estado" className="mb-1 block text-xs font-semibold text-zinc-700">Estado</label>
-            <select id="estado" name="estado" defaultValue={estado} className={inputClass}>
-              <option value="activos">Activos</option>
-              <option value="inactivos">Inactivos</option>
-              <option value="todos">Todos</option>
-            </select>
-          </div>
-          <button className={buttonClass("dark")}>Filtrar</button>
-        </form>
+        <FilterPanel key={JSON.stringify(base)} path="/jugadores" params={base} total={total} preserve={["sort", "dir"]} chips={[
+          { name: "q", label: "Nombre", value: q },
+          { name: "liga", label: "Liga", value: liga ? ctx.leagues.find((l) => l.id === liga)?.name ?? "Selección no disponible" : undefined },
+          { name: "equipo", label: "Equipo", value: equipo ? teams.find((t) => t.id === equipo)?.name ?? "Selección no disponible" : undefined },
+          { name: "estado", label: "Estado", value: estado === "activos" ? "Activos" : estado === "inactivos" ? "Inactivos" : undefined, resetValue: "todos" },
+        ]}>
+          <FilterField name="q" label="Jugador"><input id="q" name="q" type="search" defaultValue={q} placeholder="Nombre del jugador…" className={inputClass} /></FilterField>
+          <FilterSelect name="liga" label="Liga" value={liga} all="Todas las ligas" options={ctx.leagues.map((l) => ({ value: l.id, label: l.name }))} />
+          <SearchableFilter name="equipo" label="Equipo" value={equipo} all="Todos los equipos" options={teamOpts} />
+          <FilterSelect name="estado" label="Estado" value={estado} all={false} options={[{ value: "activos", label: "Activos" }, { value: "inactivos", label: "Inactivos" }, { value: "todos", label: "Todos" }]} />
+        </FilterPanel>
         {players.length === 0 ? (
-          <EmptyState title="No hay jugadores que coincidan" />
+          <EmptyState
+            title={total > 0 ? "No hay jugadores en esta página" : seasonTotal > 0 ? "No hay jugadores con estos filtros" : "Completa las plantillas"}
+            description={seasonTotal > 0 ? "Prueba otro nombre, cambia el equipo o incluye jugadores inactivos." : "Registra a los jugadores de cada equipo para llevar el goleo y las sanciones."}
+            action={seasonTotal > 0 ? <LinkButton href={total > 0 ? withParams("/jugadores", base) : "/jugadores?estado=todos"} variant="secondary">{total > 0 ? "Volver a la primera página" : "Ver todos los jugadores"}</LinkButton> : teamOpts.length > 0 ? <PlayerCreateButton action={createPlayerAction} teams={teamOpts} /> : <LinkButton href="/equipos" variant="secondary">Registrar equipos</LinkButton>}
+          />
         ) : (
           <Table>
             <thead>

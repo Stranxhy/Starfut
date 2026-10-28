@@ -1,14 +1,16 @@
-import Link from "next/link";
 import type { MatchStatus, MatchType, Prisma } from "@prisma/client";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireSeasonContext } from "@/server/season";
 import { MATCH_INCLUDE, sortMatches } from "@/server/services/matches";
-import { Badge, buttonClass, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, Table, TD, TH, withParams } from "@/components/ui/core";
+import { Badge, Card, EmptyState, inputClass, LinkButton, PageHeader, Pagination, Table, TD, TH, withParams } from "@/components/ui/core";
 import { ScoreText, StatusBadge, TeamLink, TypeBadge } from "@/components/match-ui";
 import { formatShort, fromISODate, todayISO } from "@/lib/dates";
 import { MATCH_STATUS, MATCH_TYPE } from "@/lib/labels";
 import { int, str, type SP } from "@/lib/params";
+
+import { FilterField, FilterPanel, FilterSelect } from "@/components/ui/filters";
+import { SearchableFilter } from "@/components/ui/SearchableFilter";
 
 export const metadata = { title: "Partidos" };
 const SIZE = 50;
@@ -49,6 +51,8 @@ export default async function PartidosPage({ searchParams }: { searchParams: Pro
   ]);
   const base = { fecha, jornada, liga, equipo, estado, tipo, conflictos: conflictos ? "1" : undefined };
 
+  const seasonTotal = total || await prisma.match.count({ where: { seasonId: ctx.id } });
+
   return (
     <>
       <PageHeader
@@ -68,61 +72,30 @@ export default async function PartidosPage({ searchParams }: { searchParams: Pro
         }
       />
       <Card>
-        <form className="border-b border-zinc-100 px-4 py-3 sm:px-5" role="search">
-          <div className="grid grid-cols-2 items-end gap-3 md:grid-cols-5">
-            <div>
-              <label htmlFor="fecha" className="mb-1 block text-xs font-semibold text-zinc-700">Fecha</label>
-              <input id="fecha" type="date" name="fecha" defaultValue={fecha} className={inputClass} />
-            </div>
-            <div>
-              <label htmlFor="liga" className="mb-1 block text-xs font-semibold text-zinc-700">Liga</label>
-              <select id="liga" name="liga" defaultValue={liga ?? ""} className={inputClass}>
-                <option value="">Todas</option>
-                {ctx.leagues.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="equipo" className="mb-1 block text-xs font-semibold text-zinc-700">Equipo</label>
-              <select id="equipo" name="equipo" defaultValue={equipo ?? ""} className={inputClass}>
-                <option value="">Todos</option>
-                {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="estado" className="mb-1 block text-xs font-semibold text-zinc-700">Estado</label>
-              <select id="estado" name="estado" defaultValue={estado ?? ""} className={inputClass}>
-                <option value="">Todos</option>
-                {Object.entries(MATCH_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button className={buttonClass("dark")}>Buscar</button>
-              <Link href="/partidos" className={buttonClass("ghost")}>Limpiar</Link>
-            </div>
-          </div>
-          <details className="mt-2" open={!!(jornada || tipo || conflictos)}>
-            <summary className="cursor-pointer text-xs font-semibold text-zinc-500 hover:text-zinc-800">Más filtros</summary>
-            <div className="mt-2 grid grid-cols-2 items-end gap-3 md:grid-cols-5">
-              <div>
-                <label htmlFor="jornada" className="mb-1 block text-xs font-semibold text-zinc-700">Jornada</label>
-                <select id="jornada" name="jornada" defaultValue={jornada ?? ""} className={inputClass}>
-                  <option value="">Todas</option>
-                  {rounds.map((r) => <option key={r.id} value={r.number}>J{r.number} · {formatShort(r.date)}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="tipo" className="mb-1 block text-xs font-semibold text-zinc-700">Tipo</label>
-                <select id="tipo" name="tipo" defaultValue={tipo ?? ""} className={inputClass}>
-                  <option value="">Todos</option>
-                  {Object.entries(MATCH_TYPE).map(([k, v]) => <option key={k} value={k}>{v.short}</option>)}
-                </select>
-              </div>
-              <label className="flex items-center gap-1.5 pb-2 text-xs"><input type="checkbox" name="conflictos" value="1" defaultChecked={conflictos} className="accent-brand-700" /> Solo con alertas</label>
-            </div>
-          </details>
-        </form>
+        <FilterPanel key={JSON.stringify(base)} path="/partidos" params={base} total={total} chips={[
+          { name: "fecha", label: "Fecha", value: fecha ? formatShort(fecha) : undefined },
+          { name: "liga", label: "Liga", value: liga ? ctx.leagues.find((l) => l.id === liga)?.name ?? "Selección no disponible" : undefined },
+          { name: "equipo", label: "Equipo", value: equipo ? teams.find((t) => t.id === equipo)?.name ?? "Selección no disponible" : undefined },
+          { name: "estado", label: "Estado", value: estado && estado in MATCH_STATUS ? MATCH_STATUS[estado as MatchStatus].label : undefined },
+          { name: "jornada", label: "Jornada", value: jornada },
+          { name: "tipo", label: "Tipo", value: tipo && tipo in MATCH_TYPE ? MATCH_TYPE[tipo as MatchType].short : undefined },
+          { name: "conflictos", label: "Alertas", value: conflictos ? "Solo con alertas" : undefined },
+        ]} advancedOpen={!!(jornada || tipo || conflictos)} advanced={<>
+          <FilterSelect name="jornada" label="Jornada" value={jornada} all="Todas las jornadas" options={rounds.map((r) => ({ value: String(r.number), label: `J${r.number} · ${formatShort(r.date)}` }))} />
+          <FilterSelect name="tipo" label="Tipo de partido" value={tipo} options={Object.entries(MATCH_TYPE).map(([value, v]) => ({ value, label: v.short }))} />
+          <label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"><input type="checkbox" name="conflictos" value="1" defaultChecked={conflictos} className="h-4 w-4 accent-blue-800" />Solo con alertas</label>
+        </>}>
+          <FilterField name="fecha" label="Fecha"><input id="fecha" type="date" name="fecha" defaultValue={fecha} className={inputClass} /></FilterField>
+          <FilterSelect name="liga" label="Liga" value={liga} all="Todas las ligas" options={ctx.leagues.map((l) => ({ value: l.id, label: l.name }))} />
+          <SearchableFilter name="equipo" label="Equipo" value={equipo} all="Todos los equipos" options={teams.map((t) => ({ value: t.id, label: t.name }))} />
+          <FilterSelect name="estado" label="Estado" value={estado} all="Todos los estados" options={Object.entries(MATCH_STATUS).map(([value, v]) => ({ value, label: v.label }))} />
+        </FilterPanel>
         {pageItems.length === 0 ? (
-          <EmptyState title="No hay partidos que coincidan" />
+          <EmptyState
+            title={total > 0 ? "No hay partidos en esta página" : seasonTotal > 0 ? "No hay partidos con estos filtros" : "Todavía no hay partidos"}
+            description={seasonTotal > 0 ? "Prueba otra búsqueda o quita alguno de los filtros aplicados." : teams.length < 2 ? "Registra los equipos participantes para preparar la primera jornada." : "Prepara el calendario o registra el primer encuentro de la temporada."}
+            action={<LinkButton href={total > 0 ? withParams("/partidos", base) : seasonTotal > 0 ? "/partidos" : teams.length < 2 ? "/equipos" : "/calendario"} variant="secondary">{total > 0 ? "Volver a la primera página" : seasonTotal > 0 ? "Quitar filtros" : teams.length < 2 ? "Registrar equipos" : "Preparar calendario"}</LinkButton>}
+          />
         ) : (
           <Table>
             <thead>
