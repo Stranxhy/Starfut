@@ -17,7 +17,7 @@ export function SeasonSwitcher({ seasons, current }: { seasons: { id: string; na
           fd.set("seasonId", e.target.value);
           start(() => selectSeasonAction(fd));
         }}
-        className="max-w-[14rem] truncate rounded-lg border-0 bg-white py-1.5 pr-8 pl-2 text-xs font-semibold text-zinc-800 shadow-sm ring-1 ring-zinc-300 focus:ring-2 focus:ring-brand-600"
+        className="min-h-10 min-w-0 max-w-[14rem] truncate rounded-lg border border-slate-400 bg-white py-1.5 pr-8 pl-2 text-xs font-semibold text-slate-800 focus:outline-2 focus:outline-offset-2 focus:outline-blue-700"
       >
         {seasons.map((s) => (
           <option key={s.id} value={s.id}>
