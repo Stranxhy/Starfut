@@ -1,105 +1,46 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { CalendarDays, ClipboardList, Download, Goal, ListOrdered, type LucideIcon } from "lucide-react";
+import { CalendarDays, ClipboardList, Download, Goal, ListOrdered } from "lucide-react";
 import { Modal } from "@/components/ui/form";
+import { buttonClass } from "@/components/ui/core";
+import { quickReportHref, type QuickReportDoc } from "@/domain/reports-view";
 import { formatShort } from "@/lib/dates";
 
 type League = { id: string; name: string };
-type Doc = { key: string; label: string; sub: string; icon: LucideIcon; url: (leagueId: string) => string };
 
-/**
- * Los 4 PDF que se envían por WhatsApp. Al tocar uno se pregunta la liga
- * (si solo hay una liga con equipos, se abre directamente).
- */
-export function WhatsAppPdfs({ leagues, rolDate, resultsDate }: { leagues: League[]; rolDate: string | null; resultsDate: string | null }) {
-  const [pending, setPending] = useState<{ doc: Doc; download: boolean } | null>(null);
-
-  const docs: Doc[] = [
-    ...(rolDate
-      ? [{ key: "rol", label: "Rol de juegos", sub: formatShort(rolDate), icon: CalendarDays, url: (l: string) => `/api/pdf/rol?date=${rolDate}&league=${l}` }]
-      : []),
-    ...(resultsDate
-      ? [{ key: "res", label: "Resultados", sub: formatShort(resultsDate), icon: ClipboardList, url: (l: string) => `/api/pdf/resultados?date=${resultsDate}&league=${l}` }]
-      : []),
-    { key: "tabla", label: "Tabla general", sub: "Actual", icon: ListOrdered, url: (l: string) => `/api/pdf/tabla-general?league=${l}` },
-    { key: "goleo", label: "Goleo", sub: "Actual", icon: Goal, url: (l: string) => `/api/pdf/goleo?league=${l}` },
+/** Documentos de uso frecuente, con selección de liga y temporada explícita. */
+export function WhatsAppPdfs({ seasonId, leagues, rolDate, resultsDate }: { seasonId: string; leagues: League[]; rolDate: string | null; resultsDate: string | null }) {
+  const [pending, setPending] = useState<{ key: QuickReportDoc; download: boolean } | null>(null);
+  const docs = [
+    { key: "rol" as const, label: "Rol de juegos", date: rolDate, sub: rolDate ? formatShort(rolDate) : "Sin fecha de juego", description: "Horarios, canchas y rivales de la fecha elegida.", icon: CalendarDays, available: !!rolDate },
+    { key: "resultados" as const, label: "Resultados", date: resultsDate, sub: resultsDate ? formatShort(resultsDate) : "Sin fecha de resultados", description: "Marcadores y estado de los partidos de la fecha elegida.", icon: ClipboardList, available: !!resultsDate },
+    { key: "tabla-general" as const, label: "Tabla general", date: null, sub: "Clasificación actual", description: "Posiciones, puntos y estadísticas de la fase regular.", icon: ListOrdered, available: true },
+    { key: "goleo" as const, label: "Goleadores", date: null, sub: "Fase regular", description: "Clasificación de goleo acumulada, sin amistosos ni eliminatorias.", icon: Goal, available: true },
   ];
-
-  const href = (doc: Doc, leagueId: string, download: boolean) => `${doc.url(leagueId)}${download ? "&download=1" : ""}`;
   const single = leagues.length === 1 ? leagues[0] : null;
+  const selected = docs.find((doc) => doc.key === pending?.key);
 
-  return (
-    <section className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200">
-      <div className="grid gap-2 sm:grid-cols-2">
-        {docs.map((d) => {
-          const Icon = d.icon;
-          const tile = (
-            <>
-              <Icon className="h-5 w-5 shrink-0 text-brand-700" aria-hidden />
-              <span className="min-w-0 text-left">
-                <span className="block text-sm font-semibold text-zinc-900">{d.label}</span>
-                <span className="block text-xs text-zinc-500">{d.sub}</span>
-              </span>
-            </>
-          );
-          const main = "flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 hover:bg-brand-50";
-          const side =
-            "grid w-11 shrink-0 place-items-center border-l border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-brand-700";
-          return (
-            <div key={d.key} className="flex overflow-hidden rounded-lg ring-1 ring-zinc-200 transition hover:ring-brand-400">
-              {single ? (
-                <>
-                  <a href={href(d, single.id, false)} target="_blank" className={main}>{tile}</a>
-                  <a href={href(d, single.id, true)} title="Descargar PDF" aria-label={`Descargar ${d.label}`} className={side}>
-                    <Download className="h-4 w-4" />
-                  </a>
-                </>
-              ) : (
-                <>
-                  <button type="button" onClick={() => setPending({ doc: d, download: false })} className={main} disabled={!leagues.length}>
-                    {tile}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPending({ doc: d, download: true })}
-                    title="Descargar PDF"
-                    aria-label={`Descargar ${d.label}`}
-                    className={side}
-                    disabled={!leagues.length}
-                  >
-                    <Download className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <Modal
-        open={!!pending}
-        onClose={() => setPending(null)}
-        title={pending ? `${pending.doc.label}${pending.doc.sub !== "Actual" ? ` · ${pending.doc.sub}` : ""}` : ""}
-        description={pending?.download ? "¿De qué liga quieres descargar el documento?" : "¿De qué liga quieres el documento?"}
-      >
-        {pending && (
-          <div className="grid gap-2">
-            {leagues.map((l) => (
-              <a
-                key={l.id}
-                href={href(pending.doc, l.id, pending.download)}
-                target={pending.download ? undefined : "_blank"}
-                onClick={() => setPending(null)}
-                className="flex items-center justify-between rounded-lg px-4 py-3 text-base font-semibold text-zinc-900 ring-1 ring-zinc-200 transition hover:bg-brand-50 hover:ring-brand-400"
-              >
-                {l.name}
-                {pending.download ? <Download className="h-4 w-4 text-zinc-400" /> : <span className="text-sm text-brand-700">Abrir</span>}
-              </a>
-            ))}
-          </div>
-        )}
-      </Modal>
-    </section>
-  );
+  return <>
+    <div className="grid gap-4 sm:grid-cols-2">
+      {docs.map((doc) => <article key={doc.key} className="flex min-w-0 flex-col rounded-xl border border-slate-300 bg-white">
+        <div className="flex flex-1 items-start gap-3 px-5 py-4"><span className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-blue-800"><doc.icon className="h-5 w-5" aria-hidden /></span><div className="min-w-0"><h3 className="font-bold text-[#102d50]">{doc.label}</h3><p className="mt-1 text-xs font-semibold text-blue-800">{doc.sub}</p><p className="mt-2 text-xs leading-relaxed text-slate-600">{doc.description}</p></div></div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-5 py-3">
+          {!leagues.length ? <Link href="/equipos" className="rounded text-xs font-semibold text-blue-800 underline focus-visible:outline-2 focus-visible:outline-blue-700">Registra equipos para generar el documento</Link>
+          : !doc.available ? <Link href={doc.key === "rol" ? "/calendario" : "/resultados"} className="rounded text-xs font-semibold text-blue-800 underline focus-visible:outline-2 focus-visible:outline-blue-700">{doc.key === "rol" ? "Preparar calendario" : "Ir a resultados"}</Link>
+          : single ? <>
+            <a href={quickReportHref(doc.key, seasonId, single.id, doc.date)!} target="_blank" rel="noopener" className={buttonClass("primary", "sm")}>Abrir PDF<span className="sr-only"> de {doc.label}</span></a>
+            <a href={quickReportHref(doc.key, seasonId, single.id, doc.date, true)!} className={buttonClass("secondary", "sm")}><Download className="h-4 w-4" aria-hidden />Descargar<span className="sr-only"> {doc.label}</span></a>
+          </> : <>
+            <button type="button" onClick={() => setPending({ key: doc.key, download: false })} className={buttonClass("primary", "sm")}>Abrir PDF<span className="sr-only"> de {doc.label}</span></button>
+            <button type="button" onClick={() => setPending({ key: doc.key, download: true })} className={buttonClass("secondary", "sm")}><Download className="h-4 w-4" aria-hidden />Descargar<span className="sr-only"> {doc.label}</span></button>
+          </>}
+        </div>
+      </article>)}
+    </div>
+    <Modal open={!!selected?.available && leagues.length > 0} onClose={() => setPending(null)} title={selected ? `${selected.label} · ${selected.sub}` : ""} description="Elige la liga del documento.">
+      {selected?.available && pending && <div className="grid gap-2">{leagues.map((league) => <a key={league.id} href={quickReportHref(selected.key, seasonId, league.id, selected.date, pending.download)!} target={pending.download ? undefined : "_blank"} rel="noopener" onClick={() => setPending(null)} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold text-[#102d50] hover:border-blue-700 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"><span className="min-w-0 break-words">{league.name}</span><span className="shrink-0 text-xs text-blue-800">{pending.download ? "Descargar" : "Abrir PDF"}</span></a>)}</div>}
+    </Modal>
+  </>;
 }
