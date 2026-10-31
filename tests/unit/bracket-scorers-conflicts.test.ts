@@ -7,7 +7,7 @@ import {
   validateBracket,
   zoneForPosition,
 } from "@/domain/bracket";
-import { computeScorers, validateScorers } from "@/domain/scorers";
+import { computeScorers, topScorers, validateScorers } from "@/domain/scorers";
 import { checkMatchConflicts, type ConflictContext } from "@/domain/conflicts";
 import { nextStatusAfterServing, sanctionProgress } from "@/domain/sanctions";
 import { normalizeName } from "@/domain/text";
@@ -131,5 +131,28 @@ describe("sanciones", () => {
 describe("texto", () => {
   it("normaliza nombres para detectar duplicados", () => {
     expect(normalizeName("  Huracán  fc ")).toBe(normalizeName("HURACAN FC"));
+  });
+});
+
+describe("Top 10 de goleo", () => {
+  const rec = (playerId: string, goals: number) => ({ playerId, playerName: playerId, teamId: "T", teamName: "Equipo", matchId: `m-${playerId}`, goals });
+
+  it("muestra solo los 10 primeros lugares", () => {
+    const rows = computeScorers(Array.from({ length: 15 }, (_, i) => rec(`J${String(i).padStart(2, "0")}`, 20 - i)));
+    const top = topScorers(rows);
+    expect(top).toHaveLength(10);
+    expect(top.map((r) => r.goals)).toEqual([20, 19, 18, 17, 16, 15, 14, 13, 12, 11]);
+  });
+
+  it("si varios comparten el 10.º lugar, aparecen todos", () => {
+    const goals = [20, 19, 18, 17, 16, 15, 14, 13, 12, 5, 5, 5, 1];
+    const rows = computeScorers(goals.map((g, i) => rec(`J${String(i).padStart(2, "0")}`, g)));
+    const top = topScorers(rows);
+    expect(top).toHaveLength(12);
+    expect(top.slice(9).every((r) => r.position === 10 && r.shared)).toBe(true);
+  });
+
+  it("con menos de 10 goleadores muestra a todos", () => {
+    expect(topScorers(computeScorers([rec("A", 2), rec("B", 1)]))).toHaveLength(2);
   });
 });

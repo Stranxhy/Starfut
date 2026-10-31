@@ -42,29 +42,37 @@ export function SancionesDoc({ data }: { data: SanctionsDocData }) {
     { key: "date", header: "Fecha", width: 50, render: (s) => formatShort(s.date) },
   ];
   const count = (st: string) => data.rows.filter((r) => r.status === st).length;
+  // Versión para WhatsApp (vigentes de una liga): solo cuenta activas y pendientes.
+  const statuses = data.current ? ["ACTIVA", "PENDIENTE"] : Object.keys(SANCTION_STATUS);
   return (
-    <DocShell meta={meta} orientation="landscape" title="Sanciones">
+    <DocShell meta={meta} orientation="landscape" title={data.league ? `Sanciones ${data.league.name}` : "Sanciones"}>
       <BrandHeader
         orientation="landscape"
         venue={meta.venue}
-        block={{ kicker: "Reporte", title: "Sanciones", sub: "Control disciplinario" }}
+        block={
+          data.current && data.league
+            ? { name: data.league.name, title: "Sanciones", sub: "Vigentes" }
+            : { kicker: "Reporte", title: "Sanciones", sub: "Control disciplinario" }
+        }
         info={[meta.seasonName, `Emitido: ${formatLong(meta.generatedDate)}`, plural(data.rows.length, "sanción", "sanciones")]}
       />
       <StatCards
         items={[
           { label: "Total", value: data.rows.length },
-          ...Object.keys(SANCTION_STATUS).map((k) => ({ label: SANCTION_STATUS[k].label, value: count(k) })),
+          ...statuses.map((k) => ({ label: SANCTION_STATUS[k].label, value: count(k) })),
         ]}
       />
-      <NoteBox title="Filtros aplicados">
-        <NoteText>{data.filters.length ? data.filters.join("   ·   ") : "Ninguno: se incluyen todas las sanciones de la temporada."}</NoteText>
-      </NoteBox>
+      {!data.current && (
+        <NoteBox title="Filtros aplicados">
+          <NoteText>{data.filters.length ? data.filters.join("   ·   ") : "Ninguno: se incluyen todas las sanciones de la temporada."}</NoteText>
+        </NoteBox>
+      )}
       <DataTable
         columns={columns}
         rows={data.rows}
         fontSize={7.4}
         rowHeight={18}
-        emptyText="No hay sanciones que coincidan con los filtros."
+        emptyText={data.current ? "No hay sanciones vigentes en esta liga." : "No hay sanciones que coincidan con los filtros."}
       />
       <NoteBox>
         <NoteText>

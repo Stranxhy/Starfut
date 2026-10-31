@@ -6,7 +6,7 @@
 - **Domingo:** Resultados, Partidos y Calendario.
 - **Clasificación:** Tabla general, Goleo y Eliminatorias.
 - **Registro:** Equipos, Jugadores y Sanciones.
-- **PDF para WhatsApp:** rol, resultados, tabla y goleo; al tocarlos se elige la liga.
+- **PDF para WhatsApp:** rol, resultados, tabla, goleo y sanciones vigentes; al tocarlos se elige la liga.
 - **Ajustes** (plegado): Ligas, Configuración, Historial de cambios y Usuarios.
 
 ## 1. Acceso
@@ -46,7 +46,7 @@ cambio pide un motivo y queda en el historial.
 
 ## 4. El domingo
 
-- **PDF para WhatsApp:** cuatro botones (rol de juegos, resultados, tabla general y goleo), en Inicio y en
+- **PDF para WhatsApp:** cinco botones (rol de juegos, resultados, tabla general, goleo y sanciones vigentes), en Inicio y en
   **PDF para WhatsApp**. Al tocar uno, el sistema pregunta de qué liga lo quieres y abre ese PDF; la flecha
   hace lo mismo pero lo descarga para compartirlo. El rol usa la próxima fecha y los resultados la última
   jugada (se pueden cambiar arriba). Si una liga tiene un partido combinado con la otra, aparece en los PDF
@@ -68,7 +68,8 @@ cambio pide un motivo y queda en el historial.
 
 ## 5. Tabla, goleo y sanciones
 
-- **Tabla general** y **Tabla de goleo** se calculan solas a partir de los resultados oficiales.
+- **Tabla general** y **Tabla de goleo** se calculan solas a partir de los resultados oficiales. El goleo
+  (pantalla y PDF) muestra los 10 primeros lugares; si varios jugadores empatan en el último lugar, aparecen todos.
 - **Sanciones:** registra jugador, tipo, motivo, duración y unidad (partidos, minutos, días…). Para las
   sanciones por partidos registra cada partido cumplido; al completarse se marca *Cumplida*.
 

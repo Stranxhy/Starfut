@@ -140,6 +140,47 @@ npm start
 
 ---
 
+## Pasar los datos a otra computadora
+
+GitHub solo guarda el **código**. Los equipos, jugadores, resultados y sanciones viven en la base de datos de
+cada computadora y **no se suben a GitHub** (la carpeta `backups/` también está excluida). Quien clone el
+proyecto empieza con la configuración inicial vacía.
+
+Para llevar los datos de una computadora a otra:
+
+**1. En la computadora que tiene los datos:**
+
+```bash
+npm run db:backup
+```
+
+Se crea un archivo en `backups/`, por ejemplo `starfutbol_2026-10-28_18-00.dump`. Pásalo a la otra
+computadora por USB, Drive o correo (nunca por GitHub).
+
+**2. En la computadora nueva**, después de los pasos 1 a 3 de la instalación (clonar, `npm install` y `.env`),
+copia el archivo dentro de su carpeta `backups/` y ejecuta:
+
+```bash
+npm run db:up
+npm run db:restore -- backups/starfutbol_2026-10-28_18-00.dump --reemplazar-base-actual
+npm run db:migrate   # por si el código es más nuevo que el respaldo
+npm run build
+npm start
+```
+
+No hace falta `npm run db:seed`: el respaldo ya trae toda la configuración.
+
+**Importante:**
+- El respaldo incluye los **usuarios y sus contraseñas**: en la computadora nueva se entra con el mismo correo
+  y contraseña. Por eso el archivo no debe compartirse públicamente.
+- `--reemplazar-base-actual` **borra** lo que hubiera en la base de esa computadora y lo sustituye por el
+  respaldo. Úsalo solo en la computadora nueva.
+- Cada computadora guarda sus propios datos: lo que se capture en una no aparece en la otra. Si se usarán
+  varias, decidan cuál es la principal o publiquen la aplicación en un servidor
+  (ver [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md)) para que todos usen la misma.
+
+---
+
 ## Comandos
 
 | Comando | Descripción |

@@ -24,7 +24,7 @@ function Figure({ label, value, href, tone, dot }: { label: string; value: React
         {dot && <span className={cn("h-2 w-2 rounded-full", dot)} aria-hidden />}
         {label}
       </span>
-      <span className={cn("text-2xl font-extrabold tabular-nums", tone === "alert" ? "text-brand-700" : "text-zinc-900")}>{value}</span>
+      <span className={cn("text-2xl font-extrabold tabular-nums", tone === "alert" ? "text-accent-700" : "text-zinc-900")}>{value}</span>
     </Link>
   );
 }
@@ -53,27 +53,28 @@ export default async function DashboardPage() {
       <h1 className="sr-only">Inicio</h1>
 
       {/* Jornada y accesos rápidos */}
-      <section className="bg-sport overflow-hidden rounded-2xl px-5 py-6 text-white shadow-lg sm:px-8">
-        <div className="flex flex-wrap items-end justify-between gap-6">
+      <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200">
+        <div className="brand-stripe h-1.5" />
+        <div className="flex flex-wrap items-end justify-between gap-6 px-5 py-6 sm:px-8">
           <div>
-            <p className="text-sm font-semibold text-white/70">{d.season.name}</p>
-            <p className="font-display mt-1 text-4xl leading-none sm:text-5xl">
+            <p className="text-sm font-semibold text-accent-700">{d.season.name}</p>
+            <p className="font-display mt-1 text-4xl leading-none text-brand-700 sm:text-5xl">
               {d.currentRound ? `Jornada ${d.currentRound.number}` : "Sin calendario"}
             </p>
-            <p className="mt-2 text-base font-medium text-white/90">
+            <p className="mt-2 text-base font-medium text-zinc-600">
               {matchDay ? `Próxima fecha: ${formatLong(matchDay)}` : "Genera el calendario para empezar."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
               href="/resultados"
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-base font-bold whitespace-nowrap text-brand-800 shadow transition hover:bg-brand-50"
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-brand-700 px-5 text-base font-bold whitespace-nowrap text-white shadow-sm transition hover:bg-brand-800"
             >
               <ClipboardList className="h-5 w-5" /> Registrar resultados
             </Link>
             <Link
               href="/reportes"
-              className="inline-flex h-11 items-center gap-2 rounded-lg px-5 text-base font-semibold whitespace-nowrap text-white ring-1 ring-white/50 transition ring-inset hover:bg-white/15"
+              className="inline-flex h-11 items-center gap-2 rounded-lg px-5 text-base font-semibold whitespace-nowrap text-brand-700 ring-1 ring-brand-300 transition ring-inset hover:bg-brand-50"
             >
               <FileDown className="h-5 w-5" /> PDF para WhatsApp
             </Link>
@@ -121,7 +122,7 @@ export default async function DashboardPage() {
       <Card className="p-2">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           <Figure label="Programados" value={t.scheduled} href="/partidos?estado=PROGRAMADO" dot="bg-sky-500" />
-          <Figure label="Pendientes de resultado" value={t.pendingResult} href="/resultados" dot="bg-brand-600" tone={t.pendingResult ? "alert" : undefined} />
+          <Figure label="Pendientes de resultado" value={t.pendingResult} href="/resultados" dot="bg-accent-500" tone={t.pendingResult ? "alert" : undefined} />
           <Figure label="Disputados" value={t.played} href="/partidos?estado=JUGADO" dot="bg-emerald-500" />
           <Figure label="Cancelados" value={t.cancelled} href="/partidos?estado=CANCELADO" dot="bg-zinc-400" />
           <Figure label="Reprogramados" value={t.rescheduled} href="/partidos?estado=REPROGRAMADO" dot="bg-violet-500" />

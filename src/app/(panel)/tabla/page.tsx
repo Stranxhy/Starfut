@@ -54,7 +54,7 @@ export default async function TablaPage({ searchParams }: { searchParams: Promis
             <option value="">Todas</option>
             {rounds.map((r) => <option key={r.id} value={r.number}>{r.number}</option>)}
           </select>
-          <button className="rounded-lg bg-zinc-900 px-3 py-1.5 font-semibold text-white">Ver</button>
+          <button className="rounded-lg bg-brand-700 hover:bg-brand-800 px-3 py-1.5 font-semibold text-white">Ver</button>
         </form>
       </div>
       {snapshot && (

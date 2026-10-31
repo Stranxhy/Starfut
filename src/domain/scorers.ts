@@ -85,6 +85,17 @@ export function computeScorers(
   return rows;
 }
 
+/** Lugares que se publican en la tabla de goleo (pantalla y PDF). */
+export const TOP_SCORERS = 10;
+
+/**
+ * Los mejores goleadores: los primeros `limit` lugares. Si varios jugadores comparten
+ * el último lugar, aparecen todos (no se excluye a nadie por orden alfabético).
+ */
+export function topScorers(rows: ScorerRow[], limit = TOP_SCORERS): ScorerRow[] {
+  return rows.filter((r) => r.position <= limit);
+}
+
 /** Valida que los goles individuales no excedan el marcador del tiempo regular. */
 export function validateScorers(
   scorers: { playerId: string; teamId: string; goals: number }[],

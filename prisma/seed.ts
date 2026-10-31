@@ -13,6 +13,15 @@ const prisma = new PrismaClient();
 export const INITIAL_TIMES = ["08:10", "09:00", "09:50", "10:40", "11:30", "12:20"];
 export const INITIAL_FIELDS = ["Cancha 1", "Cancha 2", "Cancha 3", "Cancha 4", "Cancha 5"];
 
+/** Primera jornada oficial de la temporada 2026 (domingo 15 de noviembre). */
+export const OFFICIAL_FIRST_MATCHDAY = "2026-11-15";
+
+/** Fecha de inicio de una temporada nueva: la oficial si aún no pasa; si no, el próximo domingo. */
+function initialStartDate(): Date {
+  const official = new Date(`${OFFICIAL_FIRST_MATCHDAY}T00:00:00Z`);
+  return official.getTime() >= Date.now() - 86_400_000 ? official : nextSunday();
+}
+
 function nextSunday(): Date {
   const now = new Date();
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -92,7 +101,7 @@ async function main() {
       tournamentId: tournament.id,
       venueId: venue.id,
       name: `Temporada ${new Date().getFullYear()}`,
-      startDate: nextSunday(),
+      startDate: initialStartDate(),
       isCurrent: hasCurrent === 0,
       leagueNames: ["Premium", "Liga 2"],
     });

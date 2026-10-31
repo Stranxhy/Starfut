@@ -73,7 +73,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
                       <option key={n} value={n}>{n}</option>
                     ))}
                   </select>
-                  <button className="rounded-md bg-zinc-900 px-2 py-1 font-semibold text-white">Aplicar</button>
+                  <button className="rounded-md bg-brand-700 hover:bg-brand-800 px-2 py-1 font-semibold text-white">Aplicar</button>
                 </form>
               ) : undefined
             }

@@ -3,17 +3,29 @@
 @theme {
   --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-audiowide), var(--font-montserrat), sans-serif;
-  --color-brand-50: #fff1f1;
-  --color-brand-100: #ffdfdf;
-  --color-brand-200: #ffc5c5;
-  --color-brand-300: #ff9c9c;
-  --color-brand-400: #ff5f5f;
-  --color-brand-500: #f12b2b;
-  --color-brand-600: #d71920;
-  --color-brand-700: #b30f16;
-  --color-brand-800: #8f1117;
-  --color-brand-900: #6e1216;
-  --color-brand-950: #3d0406;
+  /* Azul de las letras del logo: color principal */
+  --color-brand-50: #eef5ff;
+  --color-brand-100: #d9e8ff;
+  --color-brand-200: #bcd7ff;
+  --color-brand-300: #8ebdff;
+  --color-brand-400: #5999fb;
+  --color-brand-500: #2f77ef;
+  --color-brand-600: #0b5fd6;
+  --color-brand-700: #0a4fb4;
+  --color-brand-800: #0e4392;
+  --color-brand-900: #123a78;
+  --color-brand-950: #0d244a;
+  /* Naranja del jugador del logo: acentos */
+  --color-accent-50: #fff7ed;
+  --color-accent-100: #ffedd4;
+  --color-accent-200: #fed7a8;
+  --color-accent-300: #fdb970;
+  --color-accent-400: #fb9a35;
+  --color-accent-500: #f88f10;
+  --color-accent-600: #e07208;
+  --color-accent-700: #b9560a;
+  --color-accent-800: #93440f;
+  --color-accent-900: #773a10;
   --color-ink: #0d0d0f;
 }
 
@@ -22,7 +34,7 @@
 }
 
 body {
-  background: #f4f4f5;
+  background: #ffffff;
   color: #18181b;
 }
 
@@ -30,13 +42,9 @@ body {
 .scroll-thin::-webkit-scrollbar { height: 8px; width: 8px; }
 .scroll-thin::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 9999px; }
 
-/* Textura deportiva para la barra lateral y la pantalla de acceso */
-.bg-sport {
-  background-color: #120203;
-  background-image:
-    radial-gradient(120% 80% at 0% 0%, rgba(215, 25, 32, 0.55) 0%, rgba(215, 25, 32, 0) 60%),
-    radial-gradient(90% 60% at 100% 100%, rgba(143, 17, 23, 0.6) 0%, rgba(143, 17, 23, 0) 70%),
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 10px);
+/* Franja con los colores del logo (azul, naranja y rojo del balón) */
+.brand-stripe {
+  background: linear-gradient(90deg, var(--color-brand-600) 0 60%, var(--color-accent-500) 60% 88%, #e11d2a 88% 100%);
 }
 
 dialog::backdrop { background: rgba(9, 9, 11, 0.55); backdrop-filter: blur(2px); }

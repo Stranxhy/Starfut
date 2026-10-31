@@ -12,7 +12,7 @@ const VARIANTS: Record<Variant, string> = {
   secondary: "bg-white text-zinc-800 ring-1 ring-inset ring-zinc-300 hover:bg-zinc-50 focus-visible:ring-brand-500",
   ghost: "text-zinc-700 hover:bg-zinc-100 focus-visible:ring-brand-500",
   danger: "bg-white text-red-700 ring-1 ring-inset ring-red-300 hover:bg-red-50 focus-visible:ring-red-500",
-  dark: "bg-zinc-900 text-white hover:bg-black focus-visible:ring-zinc-500",
+  dark: "bg-brand-900 text-white hover:bg-brand-950 focus-visible:ring-brand-500",
 };
 const SIZES: Record<Size, string> = {
   sm: "h-8 px-3 text-xs gap-1.5",

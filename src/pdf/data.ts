@@ -7,7 +7,7 @@ import { formatDateTime, formatShort, fromISODate, toISODate, todayISO } from "@
 import { SANCTION_STATUS } from "@/lib/labels";
 import { describeSource, type Zone } from "@/domain/bracket";
 import type { StandingRow } from "@/domain/standings";
-import type { ScorerRow } from "@/domain/scorers";
+import { topScorers, type ScorerRow } from "@/domain/scorers";
 import { getLeagueScorers, getLeagueStandings, type StandingsView } from "@/server/services/standings";
 import { getPlayoffFormat, getScoringRules } from "@/server/services/rules";
 import type { ScoringRules } from "@/domain/scoring";
@@ -263,7 +263,7 @@ export async function loadScorers(seasonId: string, p: Params): Promise<ScorersD
   return {
     meta,
     league: view.league,
-    rows: view.rows,
+    rows: topScorers(view.rows),
     caption: `Jornada ${round ?? view.throughRound ?? 0}`,
     updated: view.lastResultDate,
     includePlayoffs,
@@ -484,7 +484,14 @@ export interface SanctionsDocData {
   meta: DocMeta;
   rows: SanctionLine[];
   filters: string[];
+  /** Liga filtrada (para el encabezado y el nombre del archivo). */
+  league: { id: string; name: string } | null;
+  /** Solo sanciones vigentes (activas y pendientes de cumplir): versión para WhatsApp. */
+  current: boolean;
 }
+
+/** Estados que se consideran vigentes: el jugador no puede jugar o aún debe cumplir. */
+const CURRENT_SANCTION_STATUSES: SanctionStatus[] = ["ACTIVA", "PENDIENTE"];
 
 const SANCTION_STATUSES = Object.keys(SANCTION_STATUS) as SanctionStatus[];
 
@@ -509,7 +516,9 @@ export async function loadSanctions(seasonId: string, p: Params): Promise<Sancti
     where.playerId = player.id;
     filters.push(`Jugador: ${player.fullName}`);
   }
-  const status = p.get("status");
+  const current = p.get("vigentes") === "1";
+  if (current) where.status = { in: CURRENT_SANCTION_STATUSES };
+  const status = current ? null : p.get("status");
   if (status) {
     if (!SANCTION_STATUSES.includes(status as SanctionStatus))
       throw new PdfParamError(`Estado de sanción inválido. Usa uno de: ${SANCTION_STATUSES.join(", ")}.`);
@@ -544,6 +553,8 @@ export async function loadSanctions(seasonId: string, p: Params): Promise<Sancti
   return {
     meta,
     filters,
+    league: league ? { id: league.id, name: league.name } : null,
+    current,
     rows: rows.map((s) => ({
       id: s.id,
       player: s.player.fullName,

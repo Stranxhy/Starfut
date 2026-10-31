@@ -95,10 +95,10 @@ export const DOC_DEFS = {
   sanciones: entry({
     label: "Sanciones",
     orientation: "landscape",
-    params: "[league][&team][&player][&status][&type][&from][&to]",
+    params: "[league][&vigentes=1][&team][&player][&status][&type][&from][&to]",
     load: data.loadSanctions,
     Component: SancionesDoc,
-    filename: () => "Starfutbol_Sanciones.pdf",
+    filename: (d) => (d.league ? pdf("Sanciones", ...(d.current ? ["Vigentes"] : []), d.league.name) : "Starfutbol_Sanciones.pdf"),
   }),
   eliminatorias: entry({
     label: "Eliminatorias",

@@ -74,10 +74,12 @@ export function Sidebar({ venue }: { venue: string }) {
           aria-current={active ? "page" : undefined}
           className={clsx(
             "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
-            active ? "bg-white text-brand-800 shadow" : "text-white/85 hover:bg-white/10 hover:text-white",
+            active
+              ? "bg-brand-50 text-brand-700 shadow-[inset_3px_0_0_var(--color-accent-500)]"
+              : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900",
           )}
         >
-          <Icon className="h-4 w-4 shrink-0" aria-hidden />
+          <Icon className={clsx("h-4 w-4 shrink-0", active ? "text-brand-600" : "text-zinc-400")} aria-hidden />
           {it.label}
         </Link>
       </li>
@@ -88,12 +90,12 @@ export function Sidebar({ venue }: { venue: string }) {
     <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4" aria-label="Navegación principal">
       {NAV.map((g, gi) =>
         g.collapsible ? (
-          <div key={gi} className="border-t border-white/10 pt-3">
+          <div key={gi} className="border-t border-zinc-200 pt-3">
             <button
               type="button"
               onClick={() => setShowSettings((v) => !v)}
               aria-expanded={showSettings}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-bold tracking-[0.15em] text-white/50 uppercase hover:text-white/80"
+              className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-bold tracking-[0.15em] text-zinc-400 uppercase hover:text-zinc-700"
             >
               {g.group}
               <ChevronDown className={clsx("h-4 w-4 transition", showSettings && "rotate-180")} aria-hidden />
@@ -102,7 +104,7 @@ export function Sidebar({ venue }: { venue: string }) {
           </div>
         ) : (
           <div key={gi}>
-            {g.group && <p className="mb-1 px-3 text-[11px] font-bold tracking-[0.15em] text-white/45 uppercase">{g.group}</p>}
+            {g.group && <p className="mb-1 px-3 text-[11px] font-bold tracking-[0.15em] text-zinc-400 uppercase">{g.group}</p>}
             <ul className="space-y-0.5">{g.items.map(link)}</ul>
           </div>
         ),
@@ -111,10 +113,10 @@ export function Sidebar({ venue }: { venue: string }) {
   );
 
   const brand = (
-    <div className="flex items-center justify-between gap-2 border-b border-white/10 px-5 py-4">
+    <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-5 py-4">
       <Link href="/" className="block">
         <Image src="/brand/logo.png" alt="Starfutbol" width={160} height={70} className="h-auto w-36" priority />
-        <span className="font-display mt-1 block text-[10px] tracking-[0.25em] text-white/70 uppercase">{venue}</span>
+        <span className="font-display mt-1 block text-[10px] tracking-[0.25em] text-accent-700 uppercase">{venue}</span>
       </Link>
     </div>
   );
@@ -124,23 +126,25 @@ export function Sidebar({ venue }: { venue: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed top-3 left-3 z-40 rounded-lg bg-brand-800 p-2 text-white shadow-lg lg:hidden"
+        className="fixed top-3 left-3 z-40 rounded-lg bg-white p-2 text-brand-700 shadow-md ring-1 ring-zinc-200 lg:hidden"
         aria-label="Abrir menú"
       >
         <Menu className="h-5 w-5" />
       </button>
-      <aside className="bg-sport fixed inset-y-0 left-0 z-30 hidden w-64 flex-col text-white lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-zinc-200 bg-white lg:flex">
+        <div className="brand-stripe h-1 shrink-0" />
         {brand}
         {nav}
       </aside>
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
-          <aside className="bg-sport absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col text-white shadow-2xl">
+          <div className="absolute inset-0 bg-zinc-900/40" onClick={() => setOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-2xl">
+            <div className="brand-stripe h-1 shrink-0" />
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="absolute top-3 right-3 rounded-md p-1 text-white/80 hover:bg-white/10"
+              className="absolute top-3 right-3 rounded-md p-1 text-zinc-500 hover:bg-zinc-100"
               aria-label="Cerrar menú"
             >
               <X className="h-5 w-5" />

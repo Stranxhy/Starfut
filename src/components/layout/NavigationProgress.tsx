@@ -41,7 +41,7 @@ export function NavigationProgress() {
   if (!active) return null;
   return (
     <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-1">
-      <div className="nav-progress h-full bg-brand-600 shadow-[0_0_8px_rgba(215,25,32,0.6)]" />
+      <div className="nav-progress h-full bg-accent-500 shadow-[0_0_8px_rgba(248,143,16,0.6)]" />
     </div>
   );
 }

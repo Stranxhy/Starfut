@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, ClipboardList, Download, Goal, ListOrdered, type LucideIcon } from "lucide-react";
+import { CalendarDays, ClipboardList, Download, Goal, ListOrdered, ShieldAlert, type LucideIcon } from "lucide-react";
 import { Modal } from "@/components/ui/form";
 import { formatShort } from "@/lib/dates";
 
@@ -9,7 +9,7 @@ type League = { id: string; name: string };
 type Doc = { key: string; label: string; sub: string; icon: LucideIcon; url: (leagueId: string) => string };
 
 /**
- * Los 4 PDF que se envían por WhatsApp. Al tocar uno se pregunta la liga
+ * Los PDF que se envían por WhatsApp. Al tocar uno se pregunta la liga
  * (si solo hay una liga con equipos, se abre directamente).
  */
 export function WhatsAppPdfs({ leagues, rolDate, resultsDate }: { leagues: League[]; rolDate: string | null; resultsDate: string | null }) {
@@ -24,6 +24,7 @@ export function WhatsAppPdfs({ leagues, rolDate, resultsDate }: { leagues: Leagu
       : []),
     { key: "tabla", label: "Tabla general", sub: "Actual", icon: ListOrdered, url: (l: string) => `/api/pdf/tabla-general?league=${l}` },
     { key: "goleo", label: "Goleo", sub: "Actual", icon: Goal, url: (l: string) => `/api/pdf/goleo?league=${l}` },
+    { key: "sanciones", label: "Sanciones", sub: "Vigentes", icon: ShieldAlert, url: (l: string) => `/api/pdf/sanciones?league=${l}&vigentes=1` },
   ];
 
   const href = (doc: Doc, leagueId: string, download: boolean) => `${doc.url(leagueId)}${download ? "&download=1" : ""}`;

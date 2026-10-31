@@ -82,7 +82,7 @@ export default async function ResultadosPage({ searchParams }: { searchParams: P
                   );
                 })}
               </select>
-              <button className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-semibold text-white">Ir</button>
+              <button className="rounded-lg bg-brand-700 hover:bg-brand-800 px-3 py-1.5 text-sm font-semibold text-white">Ir</button>
               {idx < sorted.length - 1 && <LinkButton href={`/resultados?date=${sorted[idx + 1]}`} size="sm" variant="secondary">{formatShort(sorted[idx + 1])} →</LinkButton>}
             </form>
           </Card>

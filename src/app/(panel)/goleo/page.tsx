@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSeasonContext } from "@/server/season";
 import { getLeagueScorers } from "@/server/services/standings";
 import { getTiebreakers } from "@/server/services/rules";
-import { SCORER_CRITERIA } from "@/domain/scorers";
+import { SCORER_CRITERIA, TOP_SCORERS, topScorers } from "@/domain/scorers";
 import { Badge, Card, CardHeader, EmptyState, LinkButton, PageHeader, Table, TD, TH, withParams } from "@/components/ui/core";
 import { formatLong } from "@/lib/dates";
 import { str, type SP } from "@/lib/params";
@@ -22,6 +22,8 @@ export default async function GoleoPage({ searchParams }: { searchParams: Promis
     getTiebreakers(ctx.id, league.id),
     prisma.round.findMany({ where: { seasonId: ctx.id, phase: "REGULAR" }, orderBy: { number: "asc" } }),
   ]);
+
+  const top = topScorers(scorers.rows);
 
   return (
     <>
@@ -43,12 +45,12 @@ export default async function GoleoPage({ searchParams }: { searchParams: Promis
             {rounds.map((r) => <option key={r.id} value={r.number}>{r.number}</option>)}
           </select>
           <label className="flex items-center gap-1"><input type="checkbox" name="eliminatorias" value="1" defaultChecked={includePlayoffs} className="accent-brand-700" /> Incluir eliminatorias</label>
-          <button className="rounded-lg bg-zinc-900 px-3 py-1.5 font-semibold text-white">Ver</button>
+          <button className="rounded-lg bg-brand-700 hover:bg-brand-800 px-3 py-1.5 font-semibold text-white">Ver</button>
         </form>
       </div>
       <Card>
         <CardHeader
-          title={`${league.name} · ${ctx.name}`}
+          title={`${league.name} · Top ${TOP_SCORERS} goleadores`}
           description={`${scorers.throughRound ? `Jornada ${scorers.throughRound} · ` : ""}${scorers.lastResultDate ? `actualizada al ${formatLong(scorers.lastResultDate)}` : "sin goles registrados"}`}
         />
         {scorers.rows.length === 0 ? (
@@ -59,7 +61,7 @@ export default async function GoleoPage({ searchParams }: { searchParams: Promis
               <tr><TH className="w-16 text-center">Lugar</TH><TH>Jugador</TH><TH>Equipo</TH><TH className="text-center">Goles</TH></tr>
             </thead>
             <tbody>
-              {scorers.rows.map((r) => (
+              {top.map((r) => (
                 <tr key={r.playerId} className={r.position === 1 ? "bg-amber-50" : ""}>
                   <TD className="text-center font-extrabold">{r.position}{r.shared && <span className="text-[10px] font-normal text-zinc-500"> (comp.)</span>}</TD>
                   <TD className="font-semibold"><Link href={`/jugadores/${r.playerId}`} className="hover:underline">{r.playerName}</Link></TD>
